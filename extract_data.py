@@ -5,6 +5,8 @@ import numpy as np
 import json
 import scipy.io
 
+from common import world_to_camera, camera_to_image
+
 
 class ImageConverter:
     def __init__(self, calibs_path, rectified_left_path, rectified_right_path):
@@ -123,28 +125,16 @@ class ImageConverter:
 
         return Im_new
 
-    def world_to_camera(self, points):
-        # Construct the transformation matrix
-        Rt = np.concatenate((self.calibs["R"], self.calibs["T"]), axis=1)
-        Rt = np.concatenate((Rt, np.array([[0, 0, 0, 1]])), axis=0)
+    def extract(self, video_path, camera, output_dir, gt_pose=None,
+                plot=False):
+        # Create a directory to save the images
+        output_path = os.path.join(output_dir, camera)
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
 
-        # Transform the 3D points into the camera coordinate system
-        points_hom = np.vstack((points.T,
-                                np.ones((1, points.shape[0]))))
+        # create an empty dictionary to store ground truth pose
+        gt_pose_dict = {}
 
-        points_hom = Rt @ points_hom
-
-        return points_hom[:3].T
-
-    def camera_to_image(self, points):
-        points_2d = self.calibs["K"] @ points.T
-
-        points_2d = points_2d.T
-        points_2d[:, :2] /= points_2d[:, 2:]
-
-        return points_2d
-
-    def convert2img(self, video_path, camera, output_dir, gt_pose=None):
         # Open the video file
         cap = cv2.VideoCapture(video_path)
 
@@ -160,10 +150,11 @@ class ImageConverter:
 
             frame = self.rectify_calibrated(frame, camera)
 
-            if gt_pose is not None:
-                pose = np.array(gt_pose[frame_count])
-                pose = self.world_to_camera(pose)
-                pose = self.camera_to_image(pose)
+            if gt_pose is not None and plot:
+                pose = gt_pose[frame_count].copy()
+                pose = world_to_camera(pose, self.calibs["R"],
+                                       self.calibs["T"])
+                pose = camera_to_image(pose, self.calibs["K"])
 
                 for point in pose:
                     # avoid ploting keypoints with NaN values
@@ -174,8 +165,15 @@ class ImageConverter:
                                3, (0, 255, 0), -1)
 
             # Save the frame as an image
-            output_path = os.path.join(output_dir, f"{frame_count:04d}.jpg")
-            cv2.imwrite(output_path, frame)
+            img_path = os.path.join(output_path, f"{frame_count:04d}.jpg")
+            cv2.imwrite(img_path, frame)
+
+            # store information
+            if gt_pose is not None:
+                gt_pose_dict[frame_count] = {
+                    "img_path": img_path,
+                    f"pose_{camera}": gt_pose[frame_count].tolist(),
+                }
 
             # Increment the frame count
             frame_count += 1
@@ -184,49 +182,31 @@ class ImageConverter:
         cap.release()
         cv2.destroyAllWindows()
 
-    def savepose(self, gt_pose, output_dir):
-        # create an empty dictionary to store the converted data
-        gt_pose_dict = {}
-
-        # loop through each pose in gt_pose
-        for i, pose in enumerate(gt_pose):
-            # convert the pose from world coordinate to camera coordinate
-            pose = self.world_to_camera(np.array(pose))
-            # add the pose to the dictionary with a key of the current index
-            gt_pose_dict[i] = pose.tolist()
-
-        info = {
-            'cam_info': {
-                'intrinsic_matrix': self.calibs['K'].tolist(),
-                'distortion_coefficients': self.calibs['dist_coeffs'].tolist(),
-            },
-            'pose': gt_pose_dict
-        }
-
         # save the converted data as a JSON file
-        with open(os.path.join(output_dir, 'gt.json'), 'w') as f:
-            json.dump(info, f, indent=4, sort_keys=True)
+        if gt_pose is not None:
+            info = {
+                'cam_info': {
+                    'K': self.calibs['K'].tolist(),
+                    'T': self.calibs['T'].tolist(),
+                    'R': self.calibs['R'].tolist(),
+                    'dist_coeffs': self.calibs['dist_coeffs'].tolist(),
+                },
+                'data': gt_pose_dict
+            }
+
+            pose_path = os.path.join(output_dir, f"gt_{camera}.json")
+            with open(pose_path, 'w') as f:
+                json.dump(info, f, indent=4, sort_keys=True)
 
     def process(self, video_left_path, video_right_path, gt_pose_path,
                 output_dir):
-        # Create a directory to save the images
-        left_output_dir = os.path.join(output_dir, "left")
-        if not os.path.exists(left_output_dir):
-            os.makedirs(left_output_dir)
-
-        right_output_dir = os.path.join(output_dir, "right")
-        if not os.path.exists(right_output_dir):
-            os.makedirs(right_output_dir)
-
         # read ground truth pose
         gt_pose = self._parse_gt_pose(gt_pose_path)
 
-        # convert video to images
-        self.convert2img(video_left_path, "left", left_output_dir, gt_pose)
-        self.convert2img(video_right_path, "right", right_output_dir, gt_pose)
-
-        # save ground truth pose into .json file
-        self.savepose(gt_pose, output_dir)
+        # convert video to images and save ground truth pose into .json file
+        # if groud truth pose is available
+        self.extract(video_left_path, "left", output_dir, gt_pose)
+        self.extract(video_right_path, "right", output_dir)
 
 
 def read_file(data_path, movements, output_root):
