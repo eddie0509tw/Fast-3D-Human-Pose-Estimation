@@ -3,61 +3,79 @@ import glob
 import cv2
 import numpy as np
 import json
+import argparse
 import scipy.io
 
-from common import world_to_camera, camera_to_image
 
+class MADSExtracter:
+    def __init__(self, calibs_left_path, calibs_right_path,
+                 rectified_left_path, rectified_right_path,
+                 rectify_stereo):
+        # parse calibration data
+        self.calibs = self._parse_calibs(calibs_left_path, calibs_right_path)
 
-class ImageConverter:
-    def __init__(self, calibs_path, rectified_left_path, rectified_right_path):
-        # Load the .mat file
-        calibs_data = scipy.io.loadmat(calibs_path)
-        self.calibs = self._parse_calibs(calibs_data,
-                                         Kata=("Kata" in calibs_path))
-        print("Camera Info:", self.calibs)
-
+        # parse rectification data
         left_rectify = self._parse_rectify(rectified_left_path, "left")
         right_rectify = self._parse_rectify(rectified_right_path, "right")
         self.rectify = {'left': left_rectify, 'right': right_rectify}
 
+        self.rectify_stereo = rectify_stereo
+
     @staticmethod
-    def _parse_calibs(calibs_data, Kata=False):
+    def _parse_calibs(calibs_left_path, calibs_right_path):
         """
         Extract the camera intrinsic matrix, extrinsic matrix,
-        and distortion coefficients
-        """
-        # focal length
-        fc = calibs_data['fc']
-        # principal point
-        cc = calibs_data['cc']
-        # skew coefficient
-        alpha_c = calibs_data['alpha_c']
-        # distortion coefficients
-        kc = calibs_data['kc']
-        # rotation vector
-        rvec = calibs_data['om']
-        # translation vector
-        tvec = calibs_data['T']
+        and distortion coefficients.
 
-        # correct the rotation vector if the movement is "Kata"
-        if Kata:
-            rvec = -rvec
+        As the intrinsic matrix of the left camera is modified based on
+        rectification, and the intrinsic matrix for both cameras are the same,
+        we use the intrinsic matrix of the right camera for both cameras.
+        """
+        # Load the .mat file
+        calibs_left_data = scipy.io.loadmat(calibs_left_path)
+        calibs_right_data = scipy.io.loadmat(calibs_right_path)
+
+        # focal length
+        fc = calibs_right_data['fc']
+        # principal point
+        cc = calibs_right_data['cc']
+        # skew coefficient
+        alpha_c = calibs_right_data['alpha_c']
+        # distortion coefficients
+        kc = calibs_right_data['kc']
 
         K = np.array(
-            [[fc[0][0], alpha_c[0][0], cc[0][0]],
-             [0, fc[1][0], cc[1][0]],
-             [0, 0, 1]]
+            [[fc[0][0], alpha_c[0][0] * fc[0][0], cc[0][0]],
+             [0,        fc[1][0],                 cc[1][0]],
+             [0,        0,                        1]]
             ).astype(np.float32).reshape(3, 3)
 
-        R, _ = cv2.Rodrigues(rvec)
-        T = tvec.reshape(3, 1)
-        dist = kc.reshape(5, 1)
+        # rotation and translation vector
+        rvec_left, tvec_left = calibs_left_data['om'], calibs_left_data['T']
+        rvec_right, tvec_right = \
+            calibs_right_data['om_ext'], calibs_right_data['T_ext']
+
+        # correct the rotation vector for left camera
+        rvec_left = -rvec_left
+
+        R_left, _ = cv2.Rodrigues(rvec_left)
+        T_left = tvec_left.reshape(3, 1)
+        R_right, _ = cv2.Rodrigues(rvec_right)
+        T_right = tvec_right.reshape(3, 1)
 
         calibs = {
-            "K": K,
-            "R": R,
-            "T": T,
-            "dist_coeffs": dist
+            'cam_left': {
+                "intrinsics": K.tolist(),
+                "rotation": R_left.tolist(),
+                "translation": T_left.tolist(),
+                "distortion_coeffs": kc.tolist()
+            },
+            'cam_right': {
+                "intrinsics": K.tolist(),
+                "rotation": R_right.tolist(),
+                "translation": T_right.tolist(),
+                "distortion_coeffs": kc.tolist()
+            }
         }
 
         return calibs
@@ -83,12 +101,6 @@ class ImageConverter:
         }
 
         return rectify
-
-    @staticmethod
-    def _parse_gt_pose(gt_pose_path):
-        # Load the .mat file
-        gt_pose = scipy.io.loadmat(gt_pose_path)['GTpose2'][0]
-        return gt_pose
 
     def rectify_calibrated(self, img, camera):
         assert camera in ["left", "right"], \
@@ -125,15 +137,11 @@ class ImageConverter:
 
         return Im_new
 
-    def extract(self, video_path, camera, output_dir, gt_pose=None,
-                plot=False):
+    def extract(self, video_path, camera, output_dir):
         # Create a directory to save the images
         output_path = os.path.join(output_dir, camera)
         if not os.path.exists(output_path):
             os.makedirs(output_path)
-
-        # create an empty dictionary to store ground truth pose
-        gt_pose_dict = {}
 
         # Open the video file
         cap = cv2.VideoCapture(video_path)
@@ -148,32 +156,13 @@ class ImageConverter:
             if not ret:
                 break
 
-            frame = self.rectify_calibrated(frame, camera)
-
-            if gt_pose is not None and plot:
-                pose = gt_pose[frame_count].copy()
-                pose = world_to_camera(pose, self.calibs["R"],
-                                       self.calibs["T"])
-                pose = camera_to_image(pose, self.calibs["K"])
-
-                for point in pose:
-                    # avoid ploting keypoints with NaN values
-                    if np.any(np.isnan(point)):
-                        continue
-                    cv2.circle(frame,
-                               (int(point[0]), int(point[1])),
-                               3, (0, 255, 0), -1)
+            if self.rectify_stereo:
+                frame = self.rectify_calibrated(frame, camera)
 
             # Save the frame as an image
-            img_path = os.path.join(output_path, f"{frame_count:04d}.jpg")
+            img_path = os.path.join(
+                output_path, f"{camera}_{frame_count:04d}.jpg")
             cv2.imwrite(img_path, frame)
-
-            # store information
-            if gt_pose is not None:
-                gt_pose_dict[frame_count] = {
-                    "img_path": img_path,
-                    f"pose_{camera}": gt_pose[frame_count].tolist(),
-                }
 
             # Increment the frame count
             frame_count += 1
@@ -182,56 +171,71 @@ class ImageConverter:
         cap.release()
         cv2.destroyAllWindows()
 
-        # save the converted data as a JSON file
-        if gt_pose is not None:
+    def save_gt_pose(self, gt_pose_path, output_dir):
+        # Create a directory to save the ground truths
+        output_path = os.path.join(output_dir, "pose")
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+
+        # Load the .mat file
+        gt_pose = scipy.io.loadmat(gt_pose_path)['GTpose2'][0]
+
+        for i in range(len(gt_pose)):
             info = {
-                'cam_info': {
-                    'K': self.calibs['K'].tolist(),
-                    'T': self.calibs['T'].tolist(),
-                    'R': self.calibs['R'].tolist(),
-                    'dist_coeffs': self.calibs['dist_coeffs'].tolist(),
-                },
-                'data': gt_pose_dict
+                'calibs_info': self.calibs,
+                'pose_3d': gt_pose[i].tolist()
             }
 
-            pose_path = os.path.join(output_dir, f"gt_{camera}.json")
+            # save the converted data as a JSON file
+            pose_path = os.path.join(output_path, f"gt_pose_{i:04d}.json")
             with open(pose_path, 'w') as f:
                 json.dump(info, f, indent=4, sort_keys=True)
 
     def process(self, video_left_path, video_right_path, gt_pose_path,
                 output_dir):
-        # read ground truth pose
-        gt_pose = self._parse_gt_pose(gt_pose_path)
+        # path to save output
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        # save ground truth
+        self.save_gt_pose(gt_pose_path, output_dir)
 
         # convert video to images and save ground truth pose into .json file
         # if groud truth pose is available
-        self.extract(video_left_path, "left", output_dir, gt_pose)
+        self.extract(video_left_path, "left", output_dir)
         self.extract(video_right_path, "right", output_dir)
 
 
-def read_file(data_path, movements, output_root):
-    for movement in movements:
-        # camera calibration and stereo retification coefficients
-        calibs_path = os.path.join(data_path, movement, "Calib_C0_left.mat")
+def read_file(opt):
+    for movement in ["HipHop", "Jazz", "Kata", "Sports", "Taichi"]:
+        # left camera calibration data
+        calibs_left_path = os.path.join(
+            opt.depth_data_path, movement, "Calib_C0_left.mat")
+        # right camera calibration data
+        calibs_right_path = os.path.join(
+            opt.multiview_data_path, movement, "Calib_Cam0.mat")
+
+        # stereo retification coefficients
         rectified_left_path = os.path.join(
-            data_path, movement, "rect_calib_left.mat")
+            opt.depth_data_path, movement, "rect_calib_left.mat")
         rectified_right_path = os.path.join(
-            data_path, movement, "rect_calib_right.mat")
+            opt.depth_data_path, movement, "rect_calib_right.mat")
 
         # videos and ground truth pose
-        video_left_path = sorted(
-            glob.glob(os.path.join(data_path, movement, "*_Left.avi")))
-        video_right_path = sorted(
-            glob.glob(os.path.join(data_path, movement, "*_Right.avi")))
-        gt_pose_path = sorted(
-            glob.glob(os.path.join(data_path, movement, "*_GT.mat")))
+        video_left_path = sorted(glob.glob(os.path.join(
+                opt.depth_data_path, movement, "*_Left.avi")))
+        video_right_path = sorted(glob.glob(os.path.join(
+                opt.depth_data_path, movement, "*_Right.avi")))
+        gt_pose_path = sorted(glob.glob(os.path.join(
+                opt.depth_data_path, movement, "*_GT.mat")))
 
         # output directory
-        output_dir = os.path.join(output_root, movement)
+        output_dir = os.path.join(opt.output_path, movement)
 
         # extract data
-        convert = ImageConverter(calibs_path, rectified_left_path,
-                                 rectified_right_path)
+        convert = MADSExtracter(calibs_left_path, calibs_right_path,
+                                rectified_left_path, rectified_right_path,
+                                opt.rectify_stereo)
 
         assert len(video_left_path) == len(video_right_path) == \
             len(gt_pose_path), \
@@ -244,7 +248,22 @@ def read_file(data_path, movements, output_root):
 
 
 if __name__ == "__main__":
-    data_path = "data/MADS/MADS_depth/depth_data"
-    output_root = "output"
-    movements = ["HipHop", "Jazz", "Kata", "Sports", "Taichi"]
-    read_file(data_path, movements, output_root)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--depth_data_path', type=str,
+                        default="data/MADS/MADS_depth/depth_data",
+                        help='path that store stereo images and ground truth '
+                             'pose')
+    parser.add_argument('--multiview_data_path', type=str,
+                        default="data/MADS/MADS_multiview/multi_view_data",
+                        help='path that store multiview camera infos, we only '
+                             'need the calibration data for the right camera '
+                             'here')
+    parser.add_argument('--output_path', type=str,
+                        default="data/MADS_training",
+                        help='path to save processed output')
+    parser.add_argument('--rectify_stereo', action='store_true',
+                        help='whether to save rectified stereo images')
+    opt = parser.parse_args()
+    print(opt)
+
+    read_file(opt)
