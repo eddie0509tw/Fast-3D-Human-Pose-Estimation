@@ -1,0 +1,13 @@
+MODEL:
+  NAME: pose_resnet
+  IMAGE_SIZE:
+  - 384
+  - 384
+  NUM_JOINTS: 16
+  NUM_LAYERS: 50
+  EXTRA:
+    TARGET_TYPE: gaussian
+    SIGMA: 3
+    HEATMAP_SIZE:
+    - 96
+    - 96
