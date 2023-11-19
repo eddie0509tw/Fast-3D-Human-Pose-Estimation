@@ -1,7 +1,7 @@
 from torch import nn
 
-from encoder import ResNet
-from decoder import PoseDecoder
+from .encoder import ResNet
+from .decoder import PoseDecoder
 
 
 class PoseResNet(nn.Module):
