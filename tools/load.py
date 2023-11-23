@@ -52,3 +52,8 @@ class LoadMDASData:
             })
 
         return metadata
+    
+if __name__ == '__main__':
+    path = "/home/eddieshen/ESE546/3d_HPE/data/MADS_training/"
+    MADS_load = LoadMDASData(path)
+    print(MADS_load.metadata[0]["cam_left"])

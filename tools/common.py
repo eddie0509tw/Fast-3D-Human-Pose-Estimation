@@ -1,4 +1,5 @@
 import numpy as np
+import cv2
 
 
 def world_to_camera(points, R, T):
@@ -19,6 +20,44 @@ def camera_to_image(points, K):
     points_2d = K @ points.T
 
     points_2d = points_2d.T
+
     points_2d[:, :2] /= points_2d[:, 2:]
 
     return points_2d
+
+
+def adjust_intrinsic(K, side_length, target_size, new_top_left):
+    """
+    Adjust the intrinsic matrix to account for the cropping and resizing.
+    Assuming the cropped imgs is first cropped to a square and then resized!!!
+
+    Args:
+
+        K: intrinsic matrix of the original image (3x3)
+
+        side_length: length of the side of the square after cropping
+                     (Min of width and height of the original image)
+
+        target_size: target size of the new image
+
+        new_top_left: new top left corner of the new image
+    Returns:
+
+        K_new: adjusted intrinsic matrix (3x3)
+    """
+    tw, th = target_size
+    ratio_x = tw / side_length
+    ratio_y = th / side_length
+
+    scaling_mat = np.array([[ratio_x, 0, 0],
+                            [0, ratio_y, 0],
+                            [0, 0, 1]])
+
+    K = np.array(K)
+    K_new = K.copy()
+
+    K_new[0, 2] += new_top_left[0]
+    K_new[1, 2] += new_top_left[1]
+    K_new = scaling_mat @ K_new
+
+    return K_new
