@@ -19,7 +19,6 @@ def project_3d_to_2d(pose_3d, K, R, T):
     # Transform the 3D points into the camera coordinate system
     pose_2d = world_to_camera(pose_3d, R, T)
     pose_2d = camera_to_image(pose_2d, K)
-    print(pose_2d)
 
     return pose_2d
 

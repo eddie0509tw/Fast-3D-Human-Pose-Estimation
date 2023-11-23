@@ -13,11 +13,11 @@ class Encoder(nn.Module):
 
         # Ignore the FC layer and adjust the pooling layer
         self.encoder = torch.nn.Sequential(*list(self.model.children())[:-2])
-        self.avg_pooling = nn.AdaptiveAvgPool2d(output_size)
+        # self.avg_pooling = nn.AdaptiveAvgPool2d(output_size)
 
     def forward(self, x):
         x = self.encoder(x)
-        x = self.avg_pooling(x)
+        # x = self.avg_pooling(x)
         return x
 
 
@@ -77,18 +77,81 @@ class CTBlock(nn.Module):
         x = self.relu(x)
         return x
 
-# class FTL(nn.Module):
-#     def __init__(self):
-#         super(FTL, self).__init__()
 
-#     def forward(self, z, proj_mats):
-#         # projection matrix input is size (batch_size, 3, 4)
-#         # latent vector input size is (batch_size, c, 18, 18)
+class FTL(nn.Module):
+    def __init__(self):
+        super(FTL, self).__init__()
 
-#         b, c, h, w = z.size()
+    def forward(self, z, proj_mats):
+        # projection matrix input is size (batch_size, 3, 4)
+        # or (batch_size, 4, 3) for one view
 
-#         z_ = z.view()
-#         p = proj_mats.view(b, 3, 4)
+        # latent vector input size is (batch_size, c, 18, 18)
+
+        b, c, h, w = z.size()
+        _, h_proj, w_proj = proj_mats.size()
+
+        z_ = z.view(b, c//w_proj, w_proj, 1, h, w)
+        proj_mats_ = proj_mats.view(b, 1, h_proj, w_proj, 1, 1)
+
+        out = torch.matmul(proj_mats_, z_).view(b, c // w_proj * h_proj, h, w)
+        return out
+
+
+class Canonical_Fusion(nn.Module):
+    def __init__(
+                self, in_ch=2048, hid_ch1=300, hid_ch2=400,
+                kernel_size=1, stride=1, n_views=2):
+      
+        super(Canonical_Fusion, self).__init__()
+        self.in_ch = in_ch
+        self.out_ch = in_ch
+        self.hid_ch1 = hid_ch1
+        self.hid_ch2 = hid_ch2
+
+        self.conv_layer1 = nn.Sequetial(
+            nn.Conv2d(self.in_ch, self.hid_ch1, kernel_size, stride),
+            nn.BatchNorm2d(self.hid_ch1),
+            nn.ReLU(inplace=True)
+        )
+        self.ftl_inv = FTL()
+        self.ftl = FTL()
+        self.conv_layer2 = nn.ModuleList()
+        for i in range(n_views):
+            n_ch = n_views * self.hid_ch1 if i == 0 else self.hid_ch2
+            self.conv_layer2.add_module(
+                "CF_conv%d" % i,
+                nn.Sequential(
+                        nn.Conv2d(
+                            n_ch, self.hid_ch2,
+                            kernel_size, stride),
+                        nn.BatchNorm2d(self.hid_ch2),
+                        nn.ReLU(inplace=True)
+                ),
+            )
+        self.out_layer = nn.Sequential(
+            nn.Conv2d(self.hid_ch2, self.out_ch, kernel_size, stride),
+            nn.BatchNorm2d(self.out_ch),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, xl, xr, proj_l, proj_r):
+        xl = self.conv_layer1(xl)
+        xr = self.conv_layer1(xr)
+
+        zl = self.ftl_inv(xl, proj_l)
+        zr = self.ftl_inv(xr, proj_r)
+
+        f = torch.cat((zl, zr), dim=1)
+        f = self.conv_layer2(f)
+
+        zl = self.ftl(f, proj_l)
+        zr = self.ftl(f, proj_r)
+
+        zl = self.out_layer(zl)
+        zr = self.out_layer(zr)
+
+        return zl, zr
 
 
 if __name__ == '__main__':

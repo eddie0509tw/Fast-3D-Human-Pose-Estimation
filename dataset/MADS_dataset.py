@@ -34,14 +34,15 @@ class MADS(Dataset):  # Fix: Change dataset to Dataset
         image_right = Image.open(self.img_right)
         image_right = np.asarray(image_right)
         image_right, gt_2d_r, _, right_K = cropping(
-                                    image_right, self.pose_3d,
-                                    self.cam_right,
-                                    target_size=self.target_size)
+                                            image_right, self.pose_3d,
+                                            self.cam_right,
+                                            target_size=self.target_size)
         image_right = torch.from_numpy(image_right.transpose(2, 0, 1)).float()
 
         gt_3d, gt_2d_l, gt_2d_r = self.process_gt_poses(
                                             self.pose_3d, self.cam_left,
                                             self.cam_right, left_K, right_K)
+
         left_proj, right_proj = self.get_projection_matrix(
             self.cam_left, self.cam_right, left_K, right_K)
 
@@ -84,9 +85,10 @@ if __name__ == '__main__':
     MADS_dataset = MADS(path)
     image_left, image_right, left_proj, right_proj, \
         gt_3d, gt_2d_l, gt_2d_r = MADS_dataset[0]
-   
+ 
     print(image_left.size())
-    print(type((cv2.resize(image_left.permute(1, 2, 0).numpy(), (256, 256)))))
-    print(gt_3d.size())
-    print(gt_2d_l)
-    print(gt_2d_r)
+    print(left_proj)
+    print(torch.pinverse(left_proj))
+    # print(gt_3d.size())
+    # print(gt_2d_l)
+    # print(gt_2d_r)
