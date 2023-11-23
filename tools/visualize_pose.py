@@ -50,7 +50,7 @@ def draw_pose_cropped(img, pose_3d, calibs):
 
     img = undistort_image(img, K, dist_coeffs)
 
-    img, pose_2d = cropping(img, pose_3d, calibs)
+    img, pose_2d, _, _ = cropping(img, pose_3d, calibs)
 
     pose_2d = pose_2d.astype(np.int32)
     for i in range(pose_2d.shape[0]):
@@ -126,11 +126,12 @@ def cropping(img, pose_3d, calibs, target_size=(256, 256)):
 
     pose_2d = pose_2d[..., :2]
 
-    pose_2d = pose_2d[
-        (pose_2d[:, 0] >= 0) & (pose_2d[:, 0] < tw) &
-        (pose_2d[:, 1] >= 0) & (pose_2d[:, 1] < th)]
+    pose_filters = (pose_2d[:, 0] >= 0) & (pose_2d[:, 0] < tw) & \
+                   (pose_2d[:, 1] >= 0) & (pose_2d[:, 1] < th)
+ 
+    pose_2d = pose_2d[pose_filters]
 
-    return cropped_img, pose_2d
+    return cropped_img, pose_2d, pose_filters, K_new
 
 
 if __name__ == "__main__":
