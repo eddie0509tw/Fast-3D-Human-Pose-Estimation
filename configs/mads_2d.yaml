@@ -1,8 +1,9 @@
 GPUS: '0'
 OUTPUT_DIR: 'output'
-WORKERS: 8
+WORKERS: 1
 DATASET:
-  ROOT: 'data/mpii/'
+  TYPE: MADS_2d
+  ROOT: 'data/MADS_extract'
   TEST_SET: valid
   TRAIN_SET: train
   FLIP: true
@@ -12,7 +13,7 @@ MODEL:
   IMAGE_SIZE:
   - 256
   - 256
-  NUM_JOINTS: 16
+  NUM_JOINTS: 19
   NUM_LAYERS: 101
   EXTRA:
     TARGET_TYPE: gaussian
