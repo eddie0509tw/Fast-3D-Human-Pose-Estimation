@@ -1,9 +1,13 @@
 import glob
 import os
 import json
+import torch
+
+from dataset.mpii import MPIIDataset
+from dataset.mads import MADS2DDataset
 
 
-class LoadMDASData:
+class LoadMADSData:
     def __init__(self, data_path):
         self.metadata = self._gen_metadata(data_path)
         self.frame_idx = list(range(len(self.metadata)))
@@ -52,3 +56,34 @@ class LoadMDASData:
             })
 
         return metadata
+
+
+def load_data(config):
+    if config.DATASET.TYPE == "MPII":
+        train_dataset = MPIIDataset(config, config.DATASET.TRAIN_SET)
+        valid_dataset = MPIIDataset(config, config.DATASET.TEST_SET)
+    elif config.DATASET.TYPE == "MADS_2d":
+        train_dataset = MADS2DDataset(config, config.DATASET.TRAIN_SET)
+        valid_dataset = MADS2DDataset(config, config.DATASET.TEST_SET)
+    elif config.DATASET.TYPE == "MADS_3d":
+        raise NotImplementedError
+    else:
+        raise NotImplementedError
+
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=config.TRAIN.BATCH_SIZE,
+        shuffle=True,
+        num_workers=config.WORKERS,
+        pin_memory=True
+    )
+
+    valid_loader = torch.utils.data.DataLoader(
+        valid_dataset,
+        batch_size=config.TEST.BATCH_SIZE,
+        shuffle=False,
+        num_workers=config.WORKERS,
+        pin_memory=True
+    )
+
+    return train_dataset, valid_dataset, train_loader, valid_loader

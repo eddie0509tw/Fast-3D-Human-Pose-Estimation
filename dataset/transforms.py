@@ -22,14 +22,14 @@ def fliplr_joints(joints, joints_vis, width, matched_parts):
 def get_affine_transform(center,
                          scale,
                          rot,
+                         origin_size,
                          output_size,
                          shift=np.array([0, 0], dtype=np.float32),
                          inv=0):
     if not isinstance(scale, np.ndarray) and not isinstance(scale, list):
-        print(scale)
         scale = np.array([scale, scale])
 
-    scale_tmp = scale * 200.0
+    scale_tmp = scale * origin_size
     src_w = scale_tmp[0]
     dst_w = output_size[0]
     dst_h = output_size[1]
