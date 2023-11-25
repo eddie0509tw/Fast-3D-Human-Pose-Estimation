@@ -6,37 +6,22 @@ import torch
 from torch.optim.lr_scheduler import MultiStepLR
 from easydict import EasyDict
 
-from dataset.mpii import MPIIDataset
+from tools.load import load_data
 from simplebaseline.utils import setup_logger
 from simplebaseline.poseresnet import PoseResNet
 from simplebaseline.loss import JointsMSELoss
 from simplebaseline.metrics import accuracy
 
 
-def run(config, model_name):
-    model_path = os.path.join("weights", model_name)
+def run(config):
+    model_path = os.path.join("weights", config.MODEL.NAME)
     if not os.path.exists(model_path):
         os.makedirs(model_path)
 
     logger = setup_logger()
 
-    train_dataset = MPIIDataset(config, config.DATASET.TRAIN_SET)
-    valid_dataset = MPIIDataset(config, config.DATASET.TEST_SET)
-
-    train_loader = torch.utils.data.DataLoader(
-            train_dataset,
-            batch_size=config.TRAIN.BATCH_SIZE,
-            shuffle=True,
-            num_workers=config.WORKERS,
-            pin_memory=True
-        )
-    valid_loader = torch.utils.data.DataLoader(
-            valid_dataset,
-            batch_size=config.TEST.BATCH_SIZE,
-            shuffle=False,
-            num_workers=config.WORKERS,
-            pin_memory=True
-        )
+    train_dataset, valid_dataset, train_loader, valid_loader \
+        = load_data(config)
 
     logger.info("The number of data in train set: {}"
                 .format(train_dataset.__len__()))
@@ -47,6 +32,10 @@ def run(config, model_name):
     logger.info("Using device: {}".format(device))
 
     model = PoseResNet(config)
+    if len(config.MODEL.PRETRAINED) > 0:
+        logger.info("Load pretrained weights from '{}'"
+                    .format(config.MODEL.PRETRAINED))
+        model.init_weights(config.MODEL.PRETRAINED)
     model = model.to(device)
 
     criterion = JointsMSELoss(config.LOSS.USE_TARGET_WEIGHT)
@@ -147,14 +136,11 @@ def run(config, model_name):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_path", type=str,
-                        default="simplebaseline/config.yaml",
+                        default="configs/mads_2d.yaml",
                         help="Path to the config file")
-    parser.add_argument("--model_name", type=str,
-                        default="poseresnet",
-                        help="Name of the model to be saved")
     args = parser.parse_args()
 
     with open(args.config_path, 'r') as f:
         config = EasyDict(yaml.safe_load(f))
 
-    run(config, args.model_name)
+    run(config)
