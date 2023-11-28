@@ -1,16 +1,22 @@
 import glob
 import os
+import copy
 import json
+import cv2
 import torch
+import numpy as np
 
 from dataset.mpii import MPIIDataset
 from dataset.mads import MADS2DDataset
+from dataset.transforms import get_affine_transform
 
 
 class LoadMADSData:
-    def __init__(self, data_path):
+    def __init__(self, data_path, image_size):
         self.metadata = self._gen_metadata(data_path)
         self.frame_idx = list(range(len(self.metadata)))
+
+        self.image_size = image_size
 
     def __iter__(self):
         self.count = 0
@@ -25,7 +31,41 @@ class LoadMADSData:
         idx = self.frame_idx[self.count]
         self.count += 1
 
-        return self.metadata[idx]
+        meta = copy.deepcopy(self.metadata[idx])
+
+        left_img = cv2.imread(meta['left_img_path'], cv2.IMREAD_COLOR)
+        right_img = cv2.imread(meta['right_img_path'], cv2.IMREAD_COLOR)
+
+        h, w = left_img.shape[:2]
+        c = np.array([w / 2, h / 2])
+        origin_size = min(h, w)
+
+        trans = get_affine_transform(c, 1, 0, origin_size, self.image_size)
+
+        # crop and resize images to match the model input size
+        left_img = cv2.warpAffine(
+            left_img,
+            trans,
+            (int(self.image_size[0]), int(self.image_size[1])),
+            flags=cv2.INTER_LINEAR)
+
+        right_img = cv2.warpAffine(
+            right_img,
+            trans,
+            (int(self.image_size[0]), int(self.image_size[1])),
+            flags=cv2.INTER_LINEAR)
+
+        # correct intrinsics matrices according to cropped and resized results
+        K_left = meta['cam_left']['intrinsics']
+        K_right = meta['cam_right']['intrinsics']
+
+        K_left = np.vstack((trans @ K_left, np.array([0, 0, 1])))
+        K_right = np.vstack((trans @ K_right, np.array([0, 0, 1])))
+
+        meta['cam_left']['intrinsics'] = K_left
+        meta['cam_right']['intrinsics'] = K_right
+
+        return left_img, right_img, meta
 
     def _gen_metadata(self, data_path):
         left_img_paths = sorted(glob.glob(
