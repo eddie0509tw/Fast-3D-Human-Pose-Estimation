@@ -3,6 +3,7 @@ import tqdm
 import argparse
 import os
 import torch
+import shutil
 from torch.optim.lr_scheduler import MultiStepLR
 from easydict import EasyDict
 
@@ -14,11 +15,22 @@ from simplebaseline.metrics import accuracy
 
 
 def run(config):
-    model_path = os.path.join("weights", config.MODEL.NAME)
-    if not os.path.exists(model_path):
-        os.makedirs(model_path)
-
     logger = setup_logger()
+
+    model_path = os.path.join("weights", config.MODEL.NAME)
+    if os.path.exists(model_path):
+        while True:
+            logger.warning("Model name exists, "
+                           "do you want to override the previous model?")
+            inp = input(">> [y:n]")
+            if inp.lower()[0] == "y":
+                shutil.rmtree(model_path)
+                break
+            elif inp.lower()[0] == "n":
+                logger.info("Stop training!")
+                exit(0)
+    else:
+        os.makedirs(model_path)
 
     train_dataset, valid_dataset, train_loader, valid_loader \
         = load_data(config)
