@@ -8,6 +8,7 @@ import numpy as np
 
 from dataset.mpii import MPIIDataset
 from dataset.mads import MADS2DDataset
+from dataset.mads_3d import MADS3DDataset
 from dataset.transforms import get_affine_transform
 
 
@@ -106,7 +107,8 @@ def load_data(config):
         train_dataset = MADS2DDataset(config, config.DATASET.TRAIN_SET)
         valid_dataset = MADS2DDataset(config, config.DATASET.TEST_SET)
     elif config.DATASET.TYPE == "MADS_3d":
-        raise NotImplementedError
+        train_dataset = MADS3DDataset(config, config.DATASET.TRAIN_SET)
+        valid_dataset = MADS3DDataset(config, config.DATASET.TEST_SET)
     else:
         raise NotImplementedError
 

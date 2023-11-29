@@ -25,6 +25,13 @@ def camera_to_image(points, K):
     return points_2d
 
 
+def get_projection_matrix(K, R, T):
+    P = K @ np.hstack((R, T))
+    P = np.vstack((P, np.array([0, 0, 0, 1])))
+
+    return P
+
+
 def project_3d_to_2d(pose_3d, K, R, T):
     # Transform the 3D points into the camera coordinate system
     pose_2d = world_to_camera(pose_3d, R, T)
