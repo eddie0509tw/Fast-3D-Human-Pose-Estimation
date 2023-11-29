@@ -6,11 +6,13 @@ import json
 import argparse
 import scipy.io
 
+from tools.common import undistort_image
+
 
 class MADSExtracter:
     def __init__(self, calibs_left_path, calibs_right_path,
                  rectified_left_path, rectified_right_path,
-                 rectify_stereo):
+                 undistort, rectify_stereo):
         # parse calibration data
         self.calibs = self._parse_calibs(calibs_left_path, calibs_right_path)
 
@@ -19,6 +21,7 @@ class MADSExtracter:
         right_rectify = self._parse_rectify(rectified_right_path, "right")
         self.rectify = {'left': left_rectify, 'right': right_rectify}
 
+        self.undistort = undistort
         self.rectify_stereo = rectify_stereo
 
     @staticmethod
@@ -64,17 +67,17 @@ class MADSExtracter:
         T_right = tvec_right.reshape(3, 1)
 
         calibs = {
-            'cam_left': {
-                "intrinsics": K.tolist(),
-                "rotation": R_left.tolist(),
-                "translation": T_left.tolist(),
-                "distortion_coeffs": kc.tolist()
+            'left': {
+                "intrinsics": K,
+                "rotation": R_left,
+                "translation": T_left,
+                "distortion_coeffs": kc
             },
-            'cam_right': {
-                "intrinsics": K.tolist(),
-                "rotation": R_right.tolist(),
-                "translation": T_right.tolist(),
-                "distortion_coeffs": kc.tolist()
+            'right': {
+                "intrinsics": K,
+                "rotation": R_right,
+                "translation": T_right,
+                "distortion_coeffs": kc
             }
         }
 
@@ -156,6 +159,11 @@ class MADSExtracter:
             if not ret:
                 break
 
+            if self.undistort:
+                frame = undistort_image(
+                    frame, self.calibs[camera]['intrinsics'],
+                    self.calibs[camera]['distortion_coeffs']
+                )
             if self.rectify_stereo:
                 frame = self.rectify_calibrated(frame, camera)
 
@@ -180,9 +188,20 @@ class MADSExtracter:
         # Load the .mat file
         gt_pose = scipy.io.loadmat(gt_pose_path)['GTpose2'][0]
 
+        # convert camera coefficients to list
+        calibs = {}
+        for camera in ["left", "right"]:
+            calibs[f"cam_{camera}"] = {
+                "intrinsics": self.calibs[camera]['intrinsics'].tolist(),
+                "rotation": self.calibs[camera]['rotation'].tolist(),
+                "translation": self.calibs[camera]['translation'].tolist(),
+                "distortion_coeffs":
+                    self.calibs[camera]['distortion_coeffs'].tolist()
+            }
+
         for i in range(len(gt_pose)):
             info = {
-                'calibs_info': self.calibs,
+                'calibs_info': calibs,
                 'pose_3d': gt_pose[i].tolist()
             }
 
@@ -229,13 +248,10 @@ def read_file(opt):
         gt_pose_path = sorted(glob.glob(os.path.join(
                 opt.depth_data_path, movement, "*_GT.mat")))
 
-        # output directory
-        output_dir = os.path.join(opt.output_path, movement)
-
         # extract data
         convert = MADSExtracter(calibs_left_path, calibs_right_path,
                                 rectified_left_path, rectified_right_path,
-                                opt.rectify_stereo)
+                                opt.undistort, opt.rectify_stereo)
 
         assert len(video_left_path) == len(video_right_path) == \
             len(gt_pose_path), \
@@ -243,8 +259,17 @@ def read_file(opt):
 
         for i in range(len(video_left_path)):
             print(f"Processing {movement} {i+1}/{len(video_left_path)}")
+
+            # set the validaiton data to the first video of every movement
+            if i == 0:
+                output_dir = os.path.join(
+                    opt.output_path, "valid", movement, f"{i}")
+            else:
+                output_dir = os.path.join(
+                    opt.output_path, "train", movement, f"{i}")
+
             convert.process(video_left_path[i], video_right_path[i],
-                            gt_pose_path[i], os.path.join(output_dir, f"{i}"))
+                            gt_pose_path[i], output_dir)
 
 
 if __name__ == "__main__":
@@ -259,8 +284,10 @@ if __name__ == "__main__":
                              'need the calibration data for the right camera '
                              'here')
     parser.add_argument('--output_path', type=str,
-                        default="data/MADS_training",
+                        default="data/MADS_extract",
                         help='path to save processed output')
+    parser.add_argument('--undistort', action='store_true',
+                        help='whether to undistort each image')
     parser.add_argument('--rectify_stereo', action='store_true',
                         help='whether to save rectified stereo images')
     opt = parser.parse_args()
