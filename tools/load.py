@@ -1,12 +1,22 @@
 import glob
 import os
+import copy
 import json
+import cv2
+import torch
+import numpy as np
+
+from dataset.mpii import MPIIDataset
+from dataset.mads import MADS2DDataset
+from dataset.transforms import get_affine_transform
 
 
-class LoadMDASData:
-    def __init__(self, data_path):
+class LoadMADSData:
+    def __init__(self, data_path, image_size):
         self.metadata = self._gen_metadata(data_path)
         self.frame_idx = list(range(len(self.metadata)))
+
+        self.image_size = image_size
 
     def __iter__(self):
         self.count = 0
@@ -21,7 +31,41 @@ class LoadMDASData:
         idx = self.frame_idx[self.count]
         self.count += 1
 
-        return self.metadata[idx]
+        meta = copy.deepcopy(self.metadata[idx])
+
+        left_img = cv2.imread(meta['left_img_path'], cv2.IMREAD_COLOR)
+        right_img = cv2.imread(meta['right_img_path'], cv2.IMREAD_COLOR)
+
+        h, w = left_img.shape[:2]
+        c = np.array([w / 2, h / 2])
+        origin_size = min(h, w)
+
+        trans = get_affine_transform(c, 1, 0, origin_size, self.image_size)
+
+        # crop and resize images to match the model input size
+        left_img = cv2.warpAffine(
+            left_img,
+            trans,
+            (int(self.image_size[0]), int(self.image_size[1])),
+            flags=cv2.INTER_LINEAR)
+
+        right_img = cv2.warpAffine(
+            right_img,
+            trans,
+            (int(self.image_size[0]), int(self.image_size[1])),
+            flags=cv2.INTER_LINEAR)
+
+        # correct intrinsics matrices according to cropped and resized results
+        K_left = meta['cam_left']['intrinsics']
+        K_right = meta['cam_right']['intrinsics']
+
+        K_left = np.vstack((trans @ K_left, np.array([0, 0, 1])))
+        K_right = np.vstack((trans @ K_right, np.array([0, 0, 1])))
+
+        meta['cam_left']['intrinsics'] = K_left
+        meta['cam_right']['intrinsics'] = K_right
+
+        return left_img, right_img, meta
 
     def _gen_metadata(self, data_path):
         left_img_paths = sorted(glob.glob(
@@ -52,8 +96,34 @@ class LoadMDASData:
             })
 
         return metadata
-    
-if __name__ == '__main__':
-    path = "/home/eddieshen/ESE546/3d_HPE/data/MADS_training/"
-    MADS_load = LoadMDASData(path)
-    print(MADS_load.metadata[0]["cam_left"])
+
+
+def load_data(config):
+    if config.DATASET.TYPE == "MPII":
+        train_dataset = MPIIDataset(config, config.DATASET.TRAIN_SET)
+        valid_dataset = MPIIDataset(config, config.DATASET.TEST_SET)
+    elif config.DATASET.TYPE == "MADS_2d":
+        train_dataset = MADS2DDataset(config, config.DATASET.TRAIN_SET)
+        valid_dataset = MADS2DDataset(config, config.DATASET.TEST_SET)
+    elif config.DATASET.TYPE == "MADS_3d":
+        raise NotImplementedError
+    else:
+        raise NotImplementedError
+
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=config.TRAIN.BATCH_SIZE,
+        shuffle=True,
+        num_workers=config.WORKERS,
+        pin_memory=True
+    )
+
+    valid_loader = torch.utils.data.DataLoader(
+        valid_dataset,
+        batch_size=config.TEST.BATCH_SIZE,
+        shuffle=False,
+        num_workers=config.WORKERS,
+        pin_memory=True
+    )
+
+    return train_dataset, valid_dataset, train_loader, valid_loader

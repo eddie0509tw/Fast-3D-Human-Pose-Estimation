@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 import cv2
 
@@ -24,6 +25,7 @@ def camera_to_image(points, K):
     points_2d[:, :2] /= points_2d[:, 2:]
 
     return points_2d
+
 
 
 def adjust_intrinsic(K, side_length, target_size, new_top_left):
@@ -61,3 +63,20 @@ def adjust_intrinsic(K, side_length, target_size, new_top_left):
     K_new = scaling_mat @ K_new
 
     return K_new
+
+  
+def project_3d_to_2d(pose_3d, K, R, T):
+    # Transform the 3D points into the camera coordinate system
+    pose_2d = world_to_camera(pose_3d, R, T)
+    pose_2d = camera_to_image(pose_2d, K)
+
+    return pose_2d
+
+
+def undistort_image(image, K, dist_coeffs, new_K=np.array([])):
+    if new_K.size == 0:
+        new_K = K.copy()
+    undistorted_image = cv2.undistort(image, K, dist_coeffs, None, new_K)
+
+    return undistorted_image
+
