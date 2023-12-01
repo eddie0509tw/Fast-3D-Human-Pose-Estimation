@@ -58,27 +58,21 @@ class MADS2DDataset(BaseDataset):
             'center': c,
             'scale': s,
             'rotation': r,
-            'K': db_rec['K'],
-            'R': db_rec['R'],
-            'T': db_rec['T']
         }
 
         return image, target, target_weight, meta
 
     def _get_db(self):
-        left_img_paths = sorted(glob.glob(
-            os.path.join(self.root, self.image_set, "**/**/left/*.jpg")))
         right_img_paths = sorted(glob.glob(
             os.path.join(self.root, self.image_set, "**/**/right/*.jpg")))
         gt_pose_paths = sorted(glob.glob(
             os.path.join(self.root, self.image_set, "**/**/pose/*.json")))
 
-        assert len(left_img_paths) == len(right_img_paths) \
-            == len(gt_pose_paths), \
+        assert len(right_img_paths) == len(gt_pose_paths), \
             "Number of images and ground truths must match"
 
         gt_db = []
-        for i in range(len(left_img_paths)):
+        for i in range(len(right_img_paths)):
             with open(gt_pose_paths[i], 'r') as f:
                 data = json.load(f)
 
@@ -107,9 +101,6 @@ class MADS2DDataset(BaseDataset):
                 'image': right_img_paths[i],
                 'joints': pose_2d,
                 'joints_vis': joints_vis,
-                'K': K,
-                'R': R,
-                'T': T
             })
 
         return gt_db

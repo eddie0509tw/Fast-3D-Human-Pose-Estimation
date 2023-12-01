@@ -1,0 +1,37 @@
+GPUS: '0'
+OUTPUT_DIR: 'output'
+WORKERS: 8
+DATASET:
+  TYPE: MADS_3d
+  ROOT: 'data/MADS_extract'
+  TEST_SET: valid
+  TRAIN_SET: train
+  FLIP: true
+  ROT_FACTOR: 30
+  SCALE_FACTOR: 0.25
+MODEL:
+  NAME: mads_256_101
+  PRETRAINED: 'weights/mpii_256_101/best.pth'
+  IMAGE_SIZE:
+  - 256
+  - 256
+  NUM_JOINTS: 19
+  NUM_LAYERS: 101
+  EXTRA:
+    TARGET_TYPE: gaussian
+    SIGMA: 3
+    HEATMAP_SIZE:
+    - 64
+    - 64
+TRAIN:
+  BATCH_SIZE: 32
+  EPOCH: 100
+  LR: 0.001
+  LR_STEP:
+  - 60
+  - 80
+  LR_FACTOR: 0.1
+TEST:
+  BATCH_SIZE: 32
+LOSS:
+  USE_TARGET_WEIGHT: true
