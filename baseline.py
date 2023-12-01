@@ -10,7 +10,7 @@ from easydict import EasyDict
 from scipy.spatial.transform import Rotation
 
 from tools.load import LoadMADSData
-from tools.common import project_3d_to_2d
+from tools.common import project_3d_to_2d, get_projection_matrix
 from simplebaseline.poseresnet import PoseResNet
 from simplebaseline.utils import get_max_preds
 
@@ -52,13 +52,6 @@ def project(meta):
     pose_2d_right = project_3d_to_2d(pose_3d, K_right, R_right, T_right)
 
     return pose_2d_left, pose_2d_right
-
-
-def get_projection_matrix(K, R, T):
-    P = K @ np.hstack((R, T))
-    P = np.vstack((P, np.array([0, 0, 0, 1])))
-
-    return P
 
 
 def plot_body(ax, points, color, label):

@@ -4,9 +4,8 @@ import numpy as np
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset
 
-from .transforms import get_affine_transform
-from .transforms import affine_transform
-from .transforms import fliplr_joints
+from .transforms import (get_affine_transform, affine_transform,
+                         fliplr_joints)
 
 
 class BaseDataset(Dataset):
