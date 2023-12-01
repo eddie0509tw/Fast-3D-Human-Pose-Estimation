@@ -58,15 +58,17 @@ class MADS3DDataset(MADS2DDataset):
             'image_left': db_rec['image_left'],
             'image_right': db_rec['image_right'],
             'joints_vis': db_rec['joints_vis'],
-            'P_left': P_left,
-            'P_right': P_right,
             'center': c,
             'scale': s,
             'rotation': r,
         }
 
-        return img_left, img_right, target_3d, \
-            target_2d_left, target_2d_right, meta
+        img_out = [img_left, img_right]
+        target_2d_out = [target_2d_left, target_2d_right]
+        proj_out = [P_left, P_right]
+
+        return img_out, target_3d, proj_out, \
+            target_2d_out, meta
 
     def _project_3d_to_2d(self, pose_3d, P):
         pose_2d = P @ np.vstack((pose_3d.T, np.ones((1, pose_3d.shape[0]))))

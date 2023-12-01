@@ -1,5 +1,6 @@
 GPUS: '0'
 OUTPUT_DIR: 'output'
+SAVE_DIR: "checkpoints/mads_3d"
 WORKERS: 8
 DATASET:
   TYPE: MADS_3d
@@ -9,29 +10,85 @@ DATASET:
   FLIP: true
   ROT_FACTOR: 30
   SCALE_FACTOR: 0.25
+
+
 MODEL:
-  NAME: mads_256_101
+  init:
+    __target__: CDRNet.trainer.Net
+    __partial__: true
+    net:
+      _target_: CDRNet.Net.CDRNet
+      heatmap_size: [256, 256]
+      n_views : 2
+      nj : 19
+      nl : 3
+      decoder_in_dim: 2048
+      decoder_feat_dim: [256, 256, 256]
+      encoder_pretrained: true
+      fusion_in_dim: 2048
+      fusion_hid_ch1: 300
+      fusion_hid_ch2: 400
+
+    optimizer:
+      _target_: torch.optim.SGD
+      _partial_: true
+      lr: ${TRAIN.LR}
+      momentum: 0.9
+
+    scheduler:
+      _target_: torch.optim.lr_scheduler.MultiStepLR
+      _partial_: true
+      milestones: ${TRAIN.LR_STEP}
+      gamma: ${TRAIN.LR_FACTOR}
+    
+    config:
+      TRAIN.START_3D: 20
+      LOSS:
+        init:
+          __target__: CDRNet.loss.MPJPELoss
+          mode : "L2"
+    EXTRA:
+      TARGET_TYPE: None
+      SIGMA: 3
+      HEATMAP_SIZE:
+      - 64
+      - 64
+
+  NAME: mads_3d_256_101
   PRETRAINED: 'weights/mpii_256_101/best.pth'
   IMAGE_SIZE:
   - 256
   - 256
-  NUM_JOINTS: 19
   NUM_LAYERS: 101
-  EXTRA:
-    TARGET_TYPE: gaussian
-    SIGMA: 3
-    HEATMAP_SIZE:
-    - 64
-    - 64
+
 TRAIN:
   BATCH_SIZE: 32
   EPOCH: 100
-  LR: 0.001
+  LR: 2.5e-2
   LR_STEP:
   - 60
   - 80
   LR_FACTOR: 0.1
 TEST:
   BATCH_SIZE: 32
-LOSS:
-  USE_TARGET_WEIGHT: true
+
+TRAINER:
+  _target_: lightning.pytorch.trainer.Trainer
+
+  default_root_dir: "./"
+
+  min_epochs: 1 # prevents early stopping
+  max_epochs: 50
+
+  accelerator: gpu
+  devices: ${WORKERS}
+
+  # mixed precision for extra speed-up
+  # precision: 16
+
+  # perform a validation loop every N training epochs
+  check_val_every_n_epoch: 1
+
+  # set True to to ensure deterministic results
+  # makes training slower but gives more reproducibility than just setting seeds
+  deterministic: true

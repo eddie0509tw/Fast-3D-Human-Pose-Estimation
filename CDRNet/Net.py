@@ -179,7 +179,7 @@ class Canonical_Fusion(nn.Module):
 class CDRNet(nn.Module):
     def __init__(
                 self, heatmap_size, n_views=2, nj=19, nl=3, 
-                decoder_in_dim=2048, decoder_feat_dims=[256, 256, 256],
+                decoder_in_dim=2048, decoder_feat_dim=[256, 256, 256],
                 encoder_pretrained=True, fusion_in_dim=2048,
                 fusion_hid_ch1=300, fusion_hid_ch2=400):
         super(CDRNet, self).__init__()
@@ -189,7 +189,7 @@ class CDRNet(nn.Module):
                                 pretrained=encoder_pretrained)
         self.decoder = Decoder(
                                 nj=nj, in_dim=decoder_in_dim,
-                                feat_dims=decoder_feat_dims)
+                                feat_dims=decoder_feat_dim)
         self.CF = Canonical_Fusion(
                                     in_dim=fusion_in_dim,
                                     hid_ch1=fusion_hid_ch1,
@@ -259,13 +259,15 @@ class CDRNet(nn.Module):
             projs = torch.cat([projs, proj_.unsqueeze(2)], axis=2)
 
         pred_3ds = self.SII(kps, projs)
+        pred_2ds = [kps[:, :, 0, :].squeeze(2), kps[:, :, 1, :].squeeze(2)]
 
-        return pred_3ds
+        return pred_2ds, pred_3ds
 
 
 if __name__ == '__main__':
     model = CDRNet(heatmap_size=(256, 256))
     xs = [torch.randn(2, 3, 256, 256) for _ in range(2)]
     proj_list = [torch.randn(2, 3, 4) for _ in range(2)]
-    out = model(xs, proj_list)
-    print(out.shape)
+    pred_2ds, pred_3ds = model(xs, proj_list)
+    print(pred_2ds[0].shape)
+    print(pred_3ds.shape)
