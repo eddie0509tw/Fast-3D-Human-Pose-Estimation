@@ -29,7 +29,7 @@ MODEL:
     _target_: CDRNet.trainer.Net
     net:
       _target_: CDRNet.Net.CDRNet
-      heatmap_size: [256, 256]
+      # heatmap_size: [256, 256]
       n_views : 2
       nj : 19
       nl : 3
@@ -38,7 +38,7 @@ MODEL:
       encoder_pretrained: true
       fusion_in_dim: 2048
       fusion_hid_ch1: 300
-      fusion_hid_ch2: 400
+      fusion_hid_ch2: 300
 
     optimizer:
       _target_: torch.optim.SGD
@@ -71,8 +71,7 @@ MODEL:
   NUM_LAYERS: 101
       
 LOSS:
-  _target_: CDRNet.loss.MPJPELoss
-  mode : "L2"
+  _target_: CDRNet.loss.KeypointsMSELoss
 
 TRAINER:
   _target_: pytorch_lightning.trainer.Trainer

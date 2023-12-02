@@ -13,11 +13,11 @@ class Encoder(nn.Module):
 
         # Ignore the FC layer and adjust the pooling layer
         self.encoder = torch.nn.Sequential(*list(self.model.children())[:-2])
-        # self.avg_pooling = nn.AdaptiveAvgPool2d(output_size)
+        #self.avg_pooling = nn.AdaptiveAvgPool2d(output_size)
 
     def forward(self, x):
         x = self.encoder(x)
-        # x = self.avg_pooling(x)
+        #x = self.avg_pooling(x)
         return x
 
 
@@ -38,13 +38,11 @@ class Decoder(nn.Module):
             if i == 0:
                 self.ct_layers.append(CTBlock(
                                             self.in_dim,
-                                            hidden_dim,
-                                            1))
+                                            hidden_dim))
             else:
                 self.ct_layers.append(CTBlock(
                                             last_dim,
-                                            hidden_dim,
-                                            1))
+                                            hidden_dim))
 
             last_dim = hidden_dim
         self.conv_last = nn.Conv2d(last_dim, self.nj, 1)
@@ -82,28 +80,26 @@ class FTL(nn.Module):
         super(FTL, self).__init__()
 
     def forward(self, z, proj_mats):
-        # projection matrix input is size (batch_size, 3, 4)
-        # or (batch_size, 4, 3) for one view
+        # projection matrix input is size (batch_size, 4, 4)
 
         # latent vector input size is (batch_size, c, 8, 8)
 
         b, c, h, w = z.size()
         _, h_proj, w_proj = proj_mats.size()
 
-        z_ = z.reshape(b, c//w_proj, w_proj, 1, h, w)
-        z_ = z_.permute(0, 1, 4, 5, 2, 3).to(torch.float32)
-        proj_mats_ = proj_mats.reshape(b, 1, h_proj, w_proj, 1, 1)
-        proj_mats_ = proj_mats_.permute(0, 1, 4, 5, 2, 3).to(torch.float32)
+        z_ = z.reshape(b, w_proj, -1)
 
-        out = torch.matmul(proj_mats_, z_).permute(0, 1, 4, 5, 2, 3)
-        out = out.squeeze(3).reshape(b, -1, h, w).contiguous()
+        proj_mats_ = proj_mats.reshape(b, h_proj, w_proj)
 
+        out = proj_mats_ @ z_
+
+        out = out.reshape(b, -1, h, w).contiguous()
         return out
 
 
 class Canonical_Fusion(nn.Module):
     def __init__(
-                self, in_dim=2048, hid_ch1=300, hid_ch2=400,
+                self, in_dim=2048, hid_ch1=300, hid_ch2=300,
                 kernel_size=1, stride=1, n_views=2):
       
         super(Canonical_Fusion, self).__init__()
@@ -178,13 +174,12 @@ class Canonical_Fusion(nn.Module):
 
 class CDRNet(nn.Module):
     def __init__(
-                self, heatmap_size, n_views=2, nj=19, nl=3, 
+                self, n_views=2, nj=19, nl=3, 
                 decoder_in_dim=2048, decoder_feat_dim=[256, 256, 256],
                 encoder_pretrained=True, fusion_in_dim=2048,
-                fusion_hid_ch1=300, fusion_hid_ch2=400):
+                fusion_hid_ch1=300, fusion_hid_ch2=300):
         super(CDRNet, self).__init__()
 
-        self.heatmap_size = heatmap_size
         self.encoder = Encoder(
                                 pretrained=encoder_pretrained)
         self.decoder = Decoder(
@@ -201,7 +196,7 @@ class CDRNet(nn.Module):
         b, c, h, w = feat.size()
         x = torch.arange(1, w + 1, 1).to(feat.device)
         y = torch.arange(1, h + 1, 1).to(feat.device)
-        grid_x, grid_y = torch.meshgrid(x, y)
+        grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
 
         cx = torch.sum(grid_x * feat, dim=[2, 3]) / torch.sum(feat, dim=[2, 3])
         cx = (cx - 1).unsqueeze(-1)
@@ -248,7 +243,7 @@ class CDRNet(nn.Module):
             zs.append(z)
 
         proj_inv_list = [
-            torch.pinverse(proj) for proj in proj_list]
+            torch.inverse(proj) for proj in proj_list]
         
         f_out = self.CF(zs, proj_list, proj_inv_list)
 
@@ -269,9 +264,9 @@ class CDRNet(nn.Module):
 
 
 if __name__ == '__main__':
-    model = CDRNet(heatmap_size=(256, 256))
+    model = CDRNet()
     xs = [torch.randn(32, 3, 256, 256) for _ in range(2)]
-    proj_list = [torch.randn(32, 3, 4) for _ in range(2)]
+    proj_list = [torch.randn(32, 4, 4) for _ in range(2)]
     pred_2ds, pred_3ds = model(xs, proj_list)
     print(pred_2ds[0].shape)
     print(pred_3ds.shape)

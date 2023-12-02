@@ -167,7 +167,7 @@ class MADS3DDataset(MADS2DDataset):
             (int(self.image_size[0]), int(self.image_size[1])),
             flags=cv2.INTER_LINEAR)
 
-        T = np.eye(3)
+        T = np.eye(4)
         T[:2, :3] = trans
         P_left = T @ P_left
         P_right = T @ P_right
