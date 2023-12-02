@@ -5,3 +5,5 @@ __pycache__/
 data/
 output/
 *.jpg
+outputs/
+lightning_logs/

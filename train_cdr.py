@@ -22,7 +22,7 @@ def train(cfg):
     checkpoint_callback = ModelCheckpoint(
                             dirpath=cfg.SAVE_DIR,
                              # Metric to monitor
-                            monitor='val/loss',
+                            monitor='val/total_loss',
                             # 'min' for lower is better
                             mode='min',
                             filename=cfg.MODEL.NAME + '_{epoch:02d}',
