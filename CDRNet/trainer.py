@@ -57,8 +57,9 @@ class Net(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         images, tgt_3d, proj_out, tgt_2d, _ = batch
         pred_2ds, pred_3ds = self.forward(images, proj_out)
-        loss_2d = 0
-        loss_3d = 0
+        loss_2d = torch.zeros(1, device=pred_2ds[0].device)
+        loss_3d = torch.zeros(1, device=pred_2ds[0].device)
+        
         if self.current_epoch <= self.start_3d:
             loss_2d = self.loss(pred_2ds, tgt_2d)
 
@@ -86,8 +87,9 @@ class Net(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         images, tgt_3d, proj_out, tgt_2d, _ = batch
         pred_2ds, pred_3ds = self.forward(images, proj_out)
-        loss_2d = 0
-        loss_3d = 0
+        loss_2d = torch.zeros(1, device=pred_2ds[0].device)
+        loss_3d = torch.zeros(1, device=pred_2ds[0].device)
+
         if self.current_epoch <= self.start_3d:
             loss_2d = self.loss(pred_2ds, tgt_2d)
 
