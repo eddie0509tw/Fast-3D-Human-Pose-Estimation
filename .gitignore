@@ -7,3 +7,5 @@ output/
 *.jpg
 outputs/
 lightning_logs/
+checkpoints/
+test*

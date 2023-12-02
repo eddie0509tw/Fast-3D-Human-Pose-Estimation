@@ -73,15 +73,15 @@ class Net(pl.LightningModule):
         # self.epoch_train_losses.append(loss.item())
         self.log(
             "train/loss_2d", loss_2d,
-            on_step=True, on_epoch=True, prog_bar=True)
+            on_step=True, on_epoch=False, prog_bar=True)
 
         self.log(
             "train/loss_3d", loss_3d,
-            on_step=True, on_epoch=True, prog_bar=True)
+            on_step=True, on_epoch=False, prog_bar=True)
 
         self.log(          
             "train/total_loss", total,
-            on_step=True, on_epoch=True, prog_bar=True)
+            on_step=False, on_epoch=True, prog_bar=True)
 
         self.training_step_outputs.append(total)
 
@@ -104,15 +104,15 @@ class Net(pl.LightningModule):
 
         self.log(
             "val/loss_2d", loss_2d,
-            on_step=True, on_epoch=True, prog_bar=True)
+            on_step=True, on_epoch=False, prog_bar=True)
 
         self.log(
             "val/loss_3d", loss_3d,
-            on_step=True, on_epoch=True, prog_bar=True)
+            on_step=True, on_epoch=False, prog_bar=True)
 
         self.log(    
             "val/total_loss", total,
-            on_step=True, on_epoch=True, prog_bar=True)
+            on_step=False, on_epoch=True, prog_bar=True)
 
         self.validation_step_outputs.append(total)
 
