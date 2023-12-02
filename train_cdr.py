@@ -13,7 +13,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 @hydra.main(version_base=None, config_path='configs', config_name='mads_3d')
 def train(cfg):
 
-    model = instantiate(cfg.MODEL.init)
+    model = instantiate(cfg.MODEL.init, LOSS=instantiate(cfg.LOSS))
 
     rain_dataset, valid_dataset, train_loader, val_loader \
         = load_data(cfg)

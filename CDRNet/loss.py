@@ -9,7 +9,7 @@ class MPJPELoss:
     def __call__(self, pred, target):
         # pred: (batch_size, 19, 3) for 3d or (batch_size, 19, 2) for 2d
         # target: (batch_size, 19, 3) or (batch_size, 19, 2) for 2d
-        assert pred.size() == target.size() and len(pred.size()) == 3
+        assert pred[0].size() == target[0].size() and len(pred) == len(target)
         loss = self.calc_loss(pred, target)
 
         return loss

@@ -54,10 +54,7 @@ MODEL:
     
     config:
       START_3D: 20
-      LOSS:
-        init:
-          __target__: CDRNet.loss.MPJPELoss
-          mode : "L2"
+
   NUM_JOINTS: 19
   EXTRA:
     TARGET_TYPE: None
@@ -72,6 +69,10 @@ MODEL:
   - 256
   - 256
   NUM_LAYERS: 101
+      
+LOSS:
+  _target_: CDRNet.loss.MPJPELoss
+  mode : "L2"
 
 TRAINER:
   _target_: pytorch_lightning.trainer.Trainer

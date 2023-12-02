@@ -91,9 +91,9 @@ class FTL(nn.Module):
         _, h_proj, w_proj = proj_mats.size()
 
         z_ = z.reshape(b, c//w_proj, w_proj, 1, h, w)
-        z_ = z_.permute(0, 1, 4, 5, 2, 3)
+        z_ = z_.permute(0, 1, 4, 5, 2, 3).to(torch.float32)
         proj_mats_ = proj_mats.reshape(b, 1, h_proj, w_proj, 1, 1)
-        proj_mats_ = proj_mats_.permute(0, 1, 4, 5, 2, 3)
+        proj_mats_ = proj_mats_.permute(0, 1, 4, 5, 2, 3).to(torch.float32)
 
         out = torch.matmul(proj_mats_, z_).permute(0, 1, 4, 5, 2, 3)
         out = out.squeeze(3).reshape(b, -1, h, w).contiguous()
@@ -199,8 +199,8 @@ class CDRNet(nn.Module):
 
     def process_heathap(self, feat):
         b, c, h, w = feat.size()
-        x = torch.arange(1, w + 1, 1)
-        y = torch.arange(1, h + 1, 1)
+        x = torch.arange(1, w + 1, 1).to(feat.device)
+        y = torch.arange(1, h + 1, 1).to(feat.device)
         grid_x, grid_y = torch.meshgrid(x, y)
 
         cx = torch.sum(grid_x * feat, dim=[2, 3]) / torch.sum(feat, dim=[2, 3])
@@ -223,9 +223,11 @@ class CDRNet(nn.Module):
         A = A.reshape(-1, nj,  2*self.n_views, proj_mats.size(-1)).contiguous()
 
         AtA = A.permute(0, 1, 3, 2) @ A
-        B_inv = AtA - 0.001 * torch.eye(AtA.size(-1), device=A.device)
+        B_inv = AtA - 0.001 * torch.eye(AtA.size(-1)).to(AtA.device)
+        B_inv = B_inv.to(torch.float32)
 
         X = torch.randn((batch_size, nj, 4, 1), dtype=torch.float32)
+        X = X.to(B_inv.device)
 
         for _ in range(n_iters):
             X = torch.linalg.solve(B_inv, X)
@@ -245,7 +247,9 @@ class CDRNet(nn.Module):
             z = self.encoder(xs[i])
             zs.append(z)
 
-        proj_inv_list = [torch.pinverse(proj) for proj in proj_list]
+        proj_inv_list = [
+            torch.pinverse(proj) for proj in proj_list]
+        
         f_out = self.CF(zs, proj_list, proj_inv_list)
 
         kps = torch.empty(0).to(xs[0].device)
@@ -266,8 +270,8 @@ class CDRNet(nn.Module):
 
 if __name__ == '__main__':
     model = CDRNet(heatmap_size=(256, 256))
-    xs = [torch.randn(2, 3, 256, 256) for _ in range(2)]
-    proj_list = [torch.randn(2, 3, 4) for _ in range(2)]
+    xs = [torch.randn(32, 3, 256, 256) for _ in range(2)]
+    proj_list = [torch.randn(32, 3, 4) for _ in range(2)]
     pred_2ds, pred_3ds = model(xs, proj_list)
     print(pred_2ds[0].shape)
     print(pred_3ds.shape)

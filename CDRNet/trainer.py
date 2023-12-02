@@ -12,10 +12,11 @@ class Net(pl.LightningModule):
     def __init__(self, net: torch.nn.Module,
                  optimizer: torch.optim.Optimizer,
                  scheduler: torch.optim.lr_scheduler,
+                 LOSS,
                  config):
         super(Net, self).__init__()
         self.model = net
-        self.loss = instantiate(config.LOSS.init)
+        self.loss = LOSS
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.start_3d = config.START_3D
@@ -55,18 +56,20 @@ class Net(pl.LightningModule):
             }
 
     def training_step(self, batch, batch_idx):
-        images, tgt_3d, proj_out, tgt_2d, _ = batch
+        images, tgt_3ds, proj_out, tgt_2ds, _ = batch
         pred_2ds, pred_3ds = self.forward(images, proj_out)
         loss_2d = torch.zeros(1, device=pred_2ds[0].device)
         loss_3d = torch.zeros(1, device=pred_2ds[0].device)
         
         if self.current_epoch <= self.start_3d:
-            loss_2d = self.loss(pred_2ds, tgt_2d)
+            for pred_2d, tgt_2d in zip(pred_2ds, tgt_2ds):
+                loss = self.loss(pred_2d, tgt_2d)
+                loss_2d += loss
 
         else:
-            loss_3d = self.loss(pred_3ds, tgt_3d)
+            loss_3d = self.loss(pred_3ds, tgt_3ds)
 
-        total = loss_2d + loss_3d
+        total = (loss_2d + loss_3d).to(torch.float32)
         # self.epoch_train_losses.append(loss.item())
         self.log(
             "train/loss_2d", loss_2d,
@@ -85,18 +88,19 @@ class Net(pl.LightningModule):
         return total
 
     def validation_step(self, batch, batch_idx):
-        images, tgt_3d, proj_out, tgt_2d, _ = batch
+        images, tgt_3ds, proj_out, tgt_2ds, _ = batch
         pred_2ds, pred_3ds = self.forward(images, proj_out)
         loss_2d = torch.zeros(1, device=pred_2ds[0].device)
         loss_3d = torch.zeros(1, device=pred_2ds[0].device)
 
         if self.current_epoch <= self.start_3d:
-            loss_2d = self.loss(pred_2ds, tgt_2d)
+            for pred_2d, tgt_2d in zip(pred_2ds, tgt_2ds):
+                loss_2d += self.loss(pred_2d, tgt_2d)
 
         else:
-            loss_3d = self.loss(pred_3ds, tgt_3d)
+            loss_3d = self.loss(pred_3ds, tgt_3ds)
 
-        total = loss_2d + loss_3d
+        total = (loss_2d + loss_3d).to(torch.float32)
 
         self.log(
             "val/loss_2d", loss_2d,

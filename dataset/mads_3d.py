@@ -63,9 +63,9 @@ class MADS3DDataset(MADS2DDataset):
             'rotation': r,
         }
 
-        img_out = [img_left, img_right]
-        target_2d_out = [target_2d_left, target_2d_right]
-        proj_out = [P_left, P_right]
+        img_out = [img_left.float(), img_right.float()]
+        target_2d_out = [target_2d_left.float(), target_2d_right.float()]
+        proj_out = [P_left.astype(np.float32), P_right.astype(np.float32)]
 
         return img_out, target_3d, proj_out, \
             target_2d_out, meta
@@ -167,7 +167,7 @@ class MADS3DDataset(MADS2DDataset):
             (int(self.image_size[0]), int(self.image_size[1])),
             flags=cv2.INTER_LINEAR)
 
-        T = np.eye(4)
+        T = np.eye(3)
         T[:2, :3] = trans
         P_left = T @ P_left
         P_right = T @ P_right
