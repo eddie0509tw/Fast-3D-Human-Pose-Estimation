@@ -2,6 +2,7 @@ GPUS: '0'
 OUTPUT_DIR: 'output'
 SAVE_DIR: "checkpoints/mads_3d"
 WORKERS: 8
+
 DATASET:
   TYPE: MADS_3d
   ROOT: 'data/MADS_extract'
@@ -11,11 +12,21 @@ DATASET:
   ROT_FACTOR: 30
   SCALE_FACTOR: 0.25
 
+TRAIN:
+  BATCH_SIZE: 32
+  EPOCH: 100
+  LR: 2.5e-2
+  LR_STEP:
+  - 30
+  - 40
+  LR_FACTOR: 0.1
+
+TEST:
+  BATCH_SIZE: 32
 
 MODEL:
   init:
-    __target__: CDRNet.trainer.Net
-    __partial__: true
+    _target_: CDRNet.trainer.Net
     net:
       _target_: CDRNet.Net.CDRNet
       heatmap_size: [256, 256]
@@ -42,17 +53,18 @@ MODEL:
       gamma: ${TRAIN.LR_FACTOR}
     
     config:
-      TRAIN.START_3D: 20
+      START_3D: 20
       LOSS:
         init:
           __target__: CDRNet.loss.MPJPELoss
           mode : "L2"
-    EXTRA:
-      TARGET_TYPE: None
-      SIGMA: 3
-      HEATMAP_SIZE:
-      - 64
-      - 64
+  NUM_JOINTS: 19
+  EXTRA:
+    TARGET_TYPE: None
+    SIGMA: 3
+    HEATMAP_SIZE:
+    - 64
+    - 64
 
   NAME: mads_3d_256_101
   PRETRAINED: 'weights/mpii_256_101/best.pth'
@@ -61,19 +73,8 @@ MODEL:
   - 256
   NUM_LAYERS: 101
 
-TRAIN:
-  BATCH_SIZE: 32
-  EPOCH: 100
-  LR: 2.5e-2
-  LR_STEP:
-  - 60
-  - 80
-  LR_FACTOR: 0.1
-TEST:
-  BATCH_SIZE: 32
-
 TRAINER:
-  _target_: lightning.pytorch.trainer.Trainer
+  _target_: pytorch_lightning.trainer.Trainer
 
   default_root_dir: "./"
 
@@ -81,7 +82,7 @@ TRAINER:
   max_epochs: 50
 
   accelerator: gpu
-  devices: ${WORKERS}
+  devices: 1
 
   # mixed precision for extra speed-up
   # precision: 16

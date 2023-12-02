@@ -1,8 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.nn.init as init
 import pytorch_lightning as pl
+import hydra
+from omegaconf import DictConfig, OmegaConf
 from hydra.utils import instantiate
+
 
 class Net(pl.LightningModule):
     def __init__(self, net: torch.nn.Module,
@@ -14,16 +18,24 @@ class Net(pl.LightningModule):
         self.loss = instantiate(config.LOSS.init)
         self.optimizer = optimizer
         self.scheduler = scheduler
-        self.start_3d = config.TRAIN.START_3D
+        self.start_3d = config.START_3D
 
         self.training_step_outputs = []
         self.training_losses_epoch = 0
         self.validation_step_outputs = []
         self.validation_losses_epoch = 0
-        self.init_weights()
+        # self.init_weights()
 
     def init_weights(self):
-        pass
+        # Initialize the weights of your model here
+        for name, param in self.model.named_parameters():
+            if 'weight' in name:
+                if 'conv' in name:
+                    init.kaiming_normal_(param, mode='fan_out', nonlinearity='relu')
+                elif 'fc' in name:
+                    init.xavier_normal_(param)
+            elif 'bias' in name:
+                init.constant_(param, 0.0)
 
     def forward(self, imgs_list, proj_mat_list=None):
         return self.model(imgs_list, proj_mat_list)
@@ -31,7 +43,7 @@ class Net(pl.LightningModule):
     def configure_optimizers(self):
         self.optimizer = self.optimizer(
             params=self.trainer.model.parameters())
-        self.scheduler = self.hparams.scheduler(
+        self.scheduler = self.scheduler(
             optimizer=self.optimizer)
         return {
                 "optimizer": self.optimizer,
