@@ -175,7 +175,7 @@ class CDRNetInferencer:
         imgs = [img_left, img_right]
         Ps = [P_left, P_right]
 
-        pred_2ds, pred_3ds = self.model(imgs, Ps, True)
+        pred_2ds, pred_3ds = self.model(imgs, Ps)
 
         for i in range(2):
             pred_2ds[i] = to_cpu(pred_2ds[i].squeeze(0) * 4.0)

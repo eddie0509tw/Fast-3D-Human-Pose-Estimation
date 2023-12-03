@@ -60,95 +60,69 @@ class CTBlock(nn.Module):
         return x
 
 
-class FTL(nn.Module):
-    def __init__(self):
-        super(FTL, self).__init__()
+class CanonicalFusion(nn.Module):
+    def __init__(self, in_dim=2048, hid_ch1=300, hid_ch2=300,
+                 n_views=2):
 
-    def forward(self, z, proj_mats):
+        super(CanonicalFusion, self).__init__()
+        out_dim = in_dim
+
+        self.conv_layer1 = nn.Sequential(
+            nn.Conv2d(in_dim, hid_ch1, kernel_size=1, stride=1),
+            nn.BatchNorm2d(hid_ch1),
+            nn.ReLU(inplace=True)
+        )
+
+        self.conv_layer2 = nn.Sequential(
+            nn.Conv2d(n_views * hid_ch2, hid_ch2, kernel_size=1, stride=1),
+            nn.BatchNorm2d(hid_ch2),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(hid_ch2, hid_ch2, kernel_size=1, stride=1),
+            nn.BatchNorm2d(hid_ch2),
+            nn.ReLU(inplace=True)
+        )
+
+        self.out_layer = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv2d(hid_ch1, out_dim, kernel_size=1, stride=1),
+                nn.BatchNorm2d(out_dim),
+                nn.ReLU(inplace=True)
+            ),
+            nn.Sequential(
+                nn.Conv2d(hid_ch1, out_dim, kernel_size=1, stride=1),
+                nn.BatchNorm2d(out_dim),
+                nn.ReLU(inplace=True)
+            )
+        ])
+
+    def ftl(self, z, proj_mats):
         # projection matrix input is size (batch_size, 4, 4)
-
         # latent vector input size is (batch_size, c, 8, 8)
 
-        b, c, h, w = z.size()
-        _, h_proj, w_proj = proj_mats.size()
+        b, _, h, w = z.size()
+        N = proj_mats.size(2)
 
-        z = z.reshape(b, w_proj, -1)
+        z = z.reshape(b, N, -1)
         out = torch.bmm(proj_mats, z)
 
         out = out.reshape(b, -1, h, w).contiguous()
         return out
 
-
-class Canonical_Fusion(nn.Module):
-    def __init__(
-                self, in_dim=2048, hid_ch1=300, hid_ch2=300,
-                kernel_size=1, stride=1, n_views=2):
-
-        super(Canonical_Fusion, self).__init__()
-        self.in_ch = in_dim
-        self.out_ch = in_dim
-        self.hid_ch1 = hid_ch1
-        self.hid_ch2 = hid_ch2
-        self.n_views = n_views
-
-        self.conv_layer1 = nn.Sequential(
-            nn.Conv2d(self.in_ch, self.hid_ch1, kernel_size, stride),
-            nn.BatchNorm2d(self.hid_ch1),
-            nn.ReLU(inplace=True)
-        )
-
-        self.ftl_inv = FTL()
-        self.ftl = FTL()
-
-        self.conv_layer2 = nn.ModuleList()
-        for i in range(self.n_views):
-            n_ch = self.n_views * self.hid_ch2 if i == 0 else self.hid_ch2
-            self.conv_layer2.add_module(
-                "CF_conv%d" % i,
-                nn.Sequential(
-                        nn.Conv2d(
-                            n_ch, self.hid_ch2,
-                            kernel_size, stride),
-
-                        nn.BatchNorm2d(self.hid_ch2),
-
-                        nn.ReLU(inplace=True)
-                ),
-            )
-
-        self.out_layer = nn.ModuleList([
-            nn.Sequential(
-                nn.Conv2d(self.hid_ch1, self.out_ch, kernel_size, stride),
-                nn.BatchNorm2d(self.out_ch),
-                nn.ReLU(inplace=True)
-            ),
-            nn.Sequential(
-                nn.Conv2d(self.hid_ch1, self.out_ch, kernel_size, stride),
-                nn.BatchNorm2d(self.out_ch),
-                nn.ReLU(inplace=True)
-            )
-        ])
-
-    def concat_z(self, zs):
-        out = []
-        for z in zs:
-            out.append(z)
-        out = torch.cat(out, dim=1)
-
-        return out
-
     def forward(self, xs, proj_list, proj_inv_list):
         zs = []
         for x, proj in zip(xs, proj_inv_list):
+            # map features from 2048 channels to hid_ch1
             x = self.conv_layer1(x)
-
-            z = self.ftl_inv(x, proj)
+            # transform feature maps from different views
+            # to a shared canonical representation
+            z = self.ftl(x, proj)
 
             zs.append(z)
 
-        f = self.concat_z(zs)
-        for conv_layer2 in self.conv_layer2:
-            f = conv_layer2(f)
+        # concatenated into a (n × hid_ch1) feature map
+        zs = torch.cat(zs, dim=1)
+        # process feature map jointly by two 1×1 convolutional layers
+        f = self.conv_layer2(zs)
 
         out = []
         for i, proj in enumerate(proj_list):
@@ -169,15 +143,14 @@ class CDRNet(nn.Module):
         super(CDRNet, self).__init__()
 
         self.encoder = ResNet(cfg)
-        self.decoder = Decoder(
-                                nj=nj, in_dim=decoder_in_dim,
-                                feat_dims=decoder_feat_dim)
-        self.CF = Canonical_Fusion(
-                                    in_dim=fusion_in_dim,
-                                    hid_ch1=fusion_hid_ch1,
-                                    hid_ch2=fusion_hid_ch2,
-                                    n_views=n_views)
+        self.decoder = Decoder(nj=nj, in_dim=decoder_in_dim,
+                               feat_dims=decoder_feat_dim)
+        self.CF = CanonicalFusion(in_dim=fusion_in_dim,
+                                  hid_ch1=fusion_hid_ch1,
+                                  hid_ch2=fusion_hid_ch2,
+                                  n_views=n_views)
         self.n_views = n_views
+        self.nj = nj
 
     def init_weights(self, pretrained=''):
         if os.path.isfile(pretrained):
@@ -207,6 +180,36 @@ class CDRNet(nn.Module):
         cy = (cy - 1).unsqueeze(-1)
 
         return torch.cat([cx, cy], dim=-1)
+
+    def dlt(self, proj_matricies, points):
+        """
+        This module lifts B 2d detections obtained from N viewpoints to 3D
+        using the Direct Linear Transform method.
+        It computes the eigenvector associated to the smallest eigenvalue
+        using Singular Value Decomposition.
+        Args:
+            proj_matricies torch tensor of shape (B, N, 3, 4):
+                sequence of projection matricies
+            points torch tensor of of shape (B, N, 2):
+                sequence of points'coordinates
+        Returns:
+            point_3d numpy torch tensor of shape (B, 3): triangulated point
+        """
+
+        batch_size = proj_matricies.shape[0]
+        n_views = proj_matricies.shape[1]
+
+        A = proj_matricies[:, :, 2:3]\
+            .expand(batch_size, n_views, 2, 4) * points.view(-1, n_views, 2, 1)
+        A -= proj_matricies[:, :, :2]
+
+        _, _, vh = torch.svd(A.view(batch_size, -1, 4))
+
+        point_3d_homo = -vh[:, :, 3]
+        point_3d = (point_3d_homo.transpose(1, 0)[:-1] /
+                    point_3d_homo.transpose(1, 0)[-1]).transpose(1, 0)
+
+        return point_3d
 
     def SII(self, kps, proj_mats, n_iters=5):
         """
@@ -262,7 +265,12 @@ class CDRNet(nn.Module):
             proj_ = proj_list[i].unsqueeze(1).repeat(1, kps.size(1), 1, 1)
             projs = torch.cat([projs, proj_.unsqueeze(2)], axis=2)
 
-        pred_3ds = self.SII(kps, projs)
+        pred_3ds = []
+        for i in range(self.nj):
+            pred_3ds.append(self.dlt(projs[:, i, :, :, :], kps[:, i, :, :] * 4.0))
+        pred_3ds = torch.stack(pred_3ds, axis=1)
+
+        # pred_3ds = self.SII(kps, projs)
         pred_2ds = [kps[:, :, 0, :].squeeze(2), kps[:, :, 1, :].squeeze(2)]
 
         return pred_2ds, pred_3ds
