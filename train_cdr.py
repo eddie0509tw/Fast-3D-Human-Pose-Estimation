@@ -8,9 +8,9 @@ from torch.optim.lr_scheduler import MultiStepLR
 from easydict import EasyDict
 
 from tools.load import load_data
-from simplebaseline.utils import setup_logger
-from CDRNet.net import CDRNet
-from CDRNet.loss import MPJPELoss
+from tools.utils import setup_logger
+from models.cdrnet import CDRNet
+from models.loss import MPJPELoss
 
 
 def run(config):
@@ -91,7 +91,7 @@ def run(config):
                 for pred, target in zip(pred_2ds, targets):
                     loss += criterion(pred, target, target_weight)
             else:
-                loss += criterion(pred_3ds / 1000.0, target_3d / 1000.0, target_weight)
+                loss += criterion(pred_3ds, target_3d, target_weight)
 
             loss.backward()
             optimizer.step()
@@ -136,7 +136,7 @@ def run(config):
                     for pred, target in zip(pred_2ds, targets):
                         loss += criterion(pred, target, target_weight)
                 else:
-                    loss += criterion(pred_3ds / 1000.0, target_3d / 1000.0, target_weight)
+                    loss += criterion(pred_3ds, target_3d, target_weight)
 
                 val_loss += loss.item()
 

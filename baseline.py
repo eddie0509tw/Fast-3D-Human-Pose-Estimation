@@ -11,8 +11,8 @@ from scipy.spatial.transform import Rotation
 
 from tools.load import LoadMADSData
 from tools.common import project_3d_to_2d, get_projection_matrix
-from simplebaseline.poseresnet import PoseResNet
-from simplebaseline.utils import get_max_preds
+from tools.utils import get_max_preds
+from models.poseresnet import PoseResNet
 
 
 def triangulation(P1, P2, pts1, pts2):

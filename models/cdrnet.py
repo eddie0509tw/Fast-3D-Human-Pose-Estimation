@@ -3,61 +3,8 @@ import torch
 import torch.nn as nn
 from collections import OrderedDict
 
-from simplebaseline.encoder import ResNet
-
-
-class Decoder(nn.Module):
-    def __init__(
-                self,
-                nj=19,
-                in_dim=2048,
-                feat_dims=[256, 256, 256]):
-        super(Decoder, self).__init__()
-        self.nj = nj
-        self.nl = len(feat_dims)
-        self.in_dim = in_dim
-        self.ct_layers = nn.ModuleList()
-        last_dim = None
-
-        for i, hidden_dim in enumerate(feat_dims):
-            if i == 0:
-                self.ct_layers.append(CTBlock(
-                                            self.in_dim,
-                                            hidden_dim))
-            else:
-                self.ct_layers.append(CTBlock(
-                                            last_dim,
-                                            hidden_dim))
-
-            last_dim = hidden_dim
-        self.conv_last = nn.Conv2d(last_dim, self.nj, 1)
-
-    def forward(self, x):
-        for i in range(self.nl):
-            x = self.ct_layers[i](x)
-        x = self.conv_last(x)
-        return x
-
-
-class CTBlock(nn.Module):
-    def __init__(self, in_ch, out_ch,
-                 kernel_size=4,
-                 stride=2,
-                 padding=1):
-        super(CTBlock, self).__init__()
-
-        self.ct = nn.ConvTranspose2d(in_ch, out_ch,
-                                     kernel_size,
-                                     stride,
-                                     padding)
-        self.bn = nn.BatchNorm2d(out_ch)
-        self.relu = nn.ReLU(inplace=True)
-
-    def forward(self, x):
-        x = self.ct(x)
-        x = self.bn(x)
-        x = self.relu(x)
-        return x
+from .encoder import ResNet
+from .decoder import PoseDecoder
 
 
 class CanonicalFusion(nn.Module):
@@ -140,24 +87,23 @@ class CanonicalFusion(nn.Module):
 
 class CDRNet(nn.Module):
     def __init__(
-                self, cfg, n_views=2, nj=19,
-                decoder_in_dim=2048, decoder_feat_dim=[256, 256, 256],
-                fusion_in_dim=2048,
+                self, cfg, n_views=2, nj=19, fusion_in_dim=2048,
                 fusion_hid_ch1=300, fusion_hid_ch2=400):
         super(CDRNet, self).__init__()
 
         self.encoder = ResNet(cfg)
-        self.decoder = Decoder(nj=nj, in_dim=decoder_in_dim,
-                               feat_dims=decoder_feat_dim)
         self.CF = CanonicalFusion(in_dim=fusion_in_dim,
                                   hid_ch1=fusion_hid_ch1,
                                   hid_ch2=fusion_hid_ch2,
                                   n_views=n_views)
+        self.decoder = PoseDecoder(cfg)
         self.n_views = n_views
         self.nj = nj
 
     def init_weights(self, pretrained=''):
         if os.path.isfile(pretrained):
+            self.decoder.init_weights()
+
             # load pretrained model
             checkpoint = torch.load(pretrained)
 

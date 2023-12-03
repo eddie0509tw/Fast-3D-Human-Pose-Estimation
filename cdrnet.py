@@ -11,7 +11,7 @@ from scipy.spatial.transform import Rotation
 
 from tools.load import LoadMADSData
 from tools.common import project_3d_to_2d, get_projection_matrix
-from CDRNet.net import CDRNet
+from models.cdrnet import CDRNet
 
 
 def triangulation(P1, P2, pts1, pts2):

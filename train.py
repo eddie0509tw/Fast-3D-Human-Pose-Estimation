@@ -8,10 +8,10 @@ from torch.optim.lr_scheduler import MultiStepLR
 from easydict import EasyDict
 
 from tools.load import load_data
-from simplebaseline.utils import setup_logger
-from simplebaseline.poseresnet import PoseResNet
-from simplebaseline.loss import JointsMSELoss
-from simplebaseline.metrics import accuracy
+from tools.utils import setup_logger
+from models.poseresnet import PoseResNet
+from models.loss import JointsMSELoss
+from models.metrics import accuracy
 
 
 def run(config):

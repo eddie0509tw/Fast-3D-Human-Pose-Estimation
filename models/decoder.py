@@ -10,7 +10,7 @@ class PoseDecoder(nn.Module):
         self.deconv2 = self._make_deconv_layer(
             256, 256, kernel_size=4, stride=2, padding=1)
         self.deconv3 = self._make_deconv_layer(
-            256, 256, kernel_size=4, stride=2, padding=1,)
+            256, 256, kernel_size=4, stride=2, padding=1)
 
         self.final_layer = nn.Conv2d(
             in_channels=256,
