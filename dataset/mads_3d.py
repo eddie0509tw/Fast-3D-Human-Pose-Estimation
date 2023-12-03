@@ -60,9 +60,11 @@ class MADS3DDataset(MADS2DDataset):
         target_2d_left = numpy2torch(target_2d_left)
         target_2d_right = numpy2torch(target_2d_right)
 
-        P_left = numpy2torch(P_left)
-        P_right = numpy2torch(P_right)
         joints_vis = numpy2torch(db_rec['joints_vis'])
+
+        # only use the first 3 rows of the projection matrix
+        P_left = numpy2torch(P_left[:3])
+        P_right = numpy2torch(P_right[:3])
 
         meta = {
             'image_left': db_rec['image_left'],
@@ -83,9 +85,7 @@ class MADS3DDataset(MADS2DDataset):
         pose_2d = pose_2d.T[:, :3]
         pose_2d[:, :2] /= pose_2d[:, 2:]
 
-        pose_2d = pose_2d[:, :2] / 4
-
-        return pose_2d
+        return pose_2d[:, :2]
 
     def _get_db(self):
         left_img_paths = sorted(glob.glob(
