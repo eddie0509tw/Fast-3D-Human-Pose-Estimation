@@ -12,6 +12,12 @@ from .transforms import get_affine_transform
 from tools.common import get_projection_matrix
 
 
+def numpy2torch(x):
+    x = torch.from_numpy(x)
+    x = x.type(torch.float32)
+    return x
+
+
 class MADS3DDataset(MADS2DDataset):
     def __init__(self, cfg, image_set):
         super().__init__(cfg, image_set)
@@ -45,19 +51,23 @@ class MADS3DDataset(MADS2DDataset):
 
         # get ground truth 3D pose
         pose_3d = db_rec['pose_3d']
-        target_3d = torch.from_numpy(pose_3d)
+        target_3d = numpy2torch(pose_3d)
 
         # get ground truth 2D pose
         target_2d_left = self._project_3d_to_2d(pose_3d, P_left)
         target_2d_right = self._project_3d_to_2d(pose_3d, P_right)
 
-        target_2d_left = torch.from_numpy(target_2d_left)
-        target_2d_right = torch.from_numpy(target_2d_right)
+        target_2d_left = numpy2torch(target_2d_left)
+        target_2d_right = numpy2torch(target_2d_right)
+
+        P_left = numpy2torch(P_left)
+        P_right = numpy2torch(P_right)
+        joints_vis = numpy2torch(db_rec['joints_vis'])
 
         meta = {
             'image_left': db_rec['image_left'],
             'image_right': db_rec['image_right'],
-            'joints_vis': db_rec['joints_vis'],
+            'joints_vis': joints_vis,
             'P_left': P_left,
             'P_right': P_right,
             'center': c,
@@ -73,7 +83,9 @@ class MADS3DDataset(MADS2DDataset):
         pose_2d = pose_2d.T[:, :3]
         pose_2d[:, :2] /= pose_2d[:, 2:]
 
-        return pose_2d[:, :2]
+        pose_2d = pose_2d[:, :2] / 4
+
+        return pose_2d
 
     def _get_db(self):
         left_img_paths = sorted(glob.glob(
@@ -102,6 +114,8 @@ class MADS3DDataset(MADS2DDataset):
             # set the visibility of joints that have NaN values to 0
             joints_vis = np.ones_like(pose_3d)
             joints_vis[mask] = 0
+            joints_vis = np.logical_and.reduce(joints_vis, axis=1,
+                                               keepdims=True)
 
             P_left = get_projection_matrix(
                 calibs_info['cam_left']['intrinsics'],
