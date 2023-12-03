@@ -10,7 +10,7 @@ from easydict import EasyDict
 from tools.load import load_data
 from simplebaseline.utils import setup_logger
 from CDRNet.net import CDRNet
-from CDRNet.loss import KeypointsMSELoss
+from CDRNet.loss import MPJPELoss
 
 
 def run(config):
@@ -48,7 +48,7 @@ def run(config):
         model.init_weights(config.MODEL.PRETRAINED)
     model = model.to(device)
 
-    criterion = KeypointsMSELoss()
+    criterion = MPJPELoss(config.LOSS.USE_TARGET_WEIGHT)
 
     optimizer = torch.optim.Adam(model.parameters(), config.TRAIN.LR)
     scheduler = MultiStepLR(
@@ -87,8 +87,11 @@ def run(config):
 
             pred_2ds, pred_3ds = model(imgs, Ps)
             loss = torch.zeros(1, device=device)
-            for pred, target in zip(pred_2ds, targets):
-                loss += criterion(pred, target, target_weight)
+            if epoch < config.TRAIN.WARMUP:
+                for pred, target in zip(pred_2ds, targets):
+                    loss += criterion(pred, target, target_weight)
+            else:
+                loss += criterion(pred_3ds / 1000.0, target_3d / 1000.0, target_weight)
 
             loss.backward()
             optimizer.step()
@@ -129,8 +132,11 @@ def run(config):
 
                 pred_2ds, pred_3ds = model(imgs, Ps)
                 loss = torch.zeros(1, device=device)
-                for pred, target in zip(pred_2ds, targets):
-                    loss += criterion(pred, target, target_weight)
+                if epoch < config.TRAIN.WARMUP:
+                    for pred, target in zip(pred_2ds, targets):
+                        loss += criterion(pred, target, target_weight)
+                else:
+                    loss += criterion(pred_3ds / 1000.0, target_3d / 1000.0, target_weight)
 
                 val_loss += loss.item()
 

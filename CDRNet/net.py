@@ -121,12 +121,16 @@ class CanonicalFusion(nn.Module):
 
         # concatenated into a (n × hid_ch1) feature map
         zs = torch.cat(zs, dim=1)
-        # process feature map jointly by two 1×1 convolutional layers
+        # process feature map jointly by two 1×1 convolutional layers,
+        # producing a unified feature map with hid_ch1 channels that is
+        # disentangled from the camera view-point
         f = self.conv_layer2(zs)
 
         out = []
         for i, proj in enumerate(proj_list):
+            # project feature maps back to each original view-point
             z = self.ftl(f, proj)
+            # each view- pecific feature map is mapped back to 2048 channels
             z = self.out_layer[i](z)
 
             out.append(z)  # list of (batch_size, 2048, 8, 8)
@@ -168,8 +172,17 @@ class CDRNet(nn.Module):
                              .format(pretrained))
 
     def process_heathap(self, feat):
+        """
+        This function computes the 2D location of each joint j by simply
+        integrating heatmaps across spatial axes.
+        That is, the 2D location of each joint j reqpresents the center of mass
+        of the jth feature map.
+        Args:
+            feat (batch_size, num_joints, N, N): heatmap features
+        """
+
         feat = torch.sigmoid(feat)
-        b, c, h, w = feat.size()
+        _, _, h, w = feat.size()
         x = torch.arange(1, w + 1, 1).to(feat.device)
         y = torch.arange(1, h + 1, 1).to(feat.device)
         grid_x, grid_y = torch.meshgrid(x, y, indexing='xy')
@@ -183,7 +196,7 @@ class CDRNet(nn.Module):
 
     def dlt(self, proj_matricies, points):
         """
-        This module lifts B 2d detections obtained from N viewpoints to 3D
+        This function lifts B 2d detections obtained from N viewpoints to 3D
         using the Direct Linear Transform method.
         It computes the eigenvector associated to the smallest eigenvalue
         using Singular Value Decomposition.
@@ -243,35 +256,44 @@ class CDRNet(nn.Module):
         xs(list): size is (batch_size, 3, 256, 256)
         proj_list(list): (batch_size, 3, 4)
         """
+        img_size = xs[0].size(2)
+
         zs = []
         for i in range(self.n_views):
             z = self.encoder(xs[i])
             zs.append(z)
-
-        proj_list = [proj[:, :3, :] for proj in proj_list]
 
         proj_inv_list = [
             torch.linalg.pinv(proj) for proj in proj_list]
 
         f_out = self.CF(zs, proj_list, proj_inv_list)
 
-        kps = torch.empty(0).to(xs[0].device)
-        projs = torch.empty(0).to(xs[0].device)
-
+        # extract 2D locations of joints from heatmaps
+        kps, projs = [], []
         for i in range(self.n_views):
             h = self.decoder(f_out[i])
-            kps = torch.cat(
-                [kps, self.process_heathap(h).unsqueeze(2)], axis=2)
-            proj_ = proj_list[i].unsqueeze(1).repeat(1, kps.size(1), 1, 1)
-            projs = torch.cat([projs, proj_.unsqueeze(2)], axis=2)
+            heatmap_size = h.size(2)
 
+            kp = self.process_heathap(h)
+
+            # multiply by a factor to scale back to original image size
+            kp = kp * (img_size / heatmap_size)
+
+            proj = proj_list[i].unsqueeze(1).repeat(1, self.nj, 1, 1)
+
+            kps.append(kp.unsqueeze(2))
+            projs.append(proj.unsqueeze(2))
+        kps = torch.cat(kps, dim=2)
+        projs = torch.cat(projs, dim=2)
+
+        pred_2ds = [kps[:, :, 0, :].squeeze(2), kps[:, :, 1, :].squeeze(2)]
+
+        # extract 3D locations of joints from Direct Linear Transform
         pred_3ds = []
         for i in range(self.nj):
-            pred_3ds.append(self.dlt(projs[:, i, :, :, :], kps[:, i, :, :] * 4.0))
+            kps_3d = self.dlt(projs[:, i, :, :, :], kps[:, i, :, :])
+            pred_3ds.append(kps_3d)
         pred_3ds = torch.stack(pred_3ds, axis=1)
-
-        # pred_3ds = self.SII(kps, projs)
-        pred_2ds = [kps[:, :, 0, :].squeeze(2), kps[:, :, 1, :].squeeze(2)]
 
         return pred_2ds, pred_3ds
 

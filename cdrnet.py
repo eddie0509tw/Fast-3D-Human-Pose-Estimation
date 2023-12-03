@@ -166,10 +166,10 @@ class CDRNetInferencer:
         img_right = self.transform(img_right).unsqueeze(0)
         img_right = img_right.to(self.device)
 
-        P_left = numpy2torch(P_left).unsqueeze(0)
+        P_left = numpy2torch(P_left[:3]).unsqueeze(0)
         P_left = P_left.to(self.device)
 
-        P_right = numpy2torch(P_right).unsqueeze(0)
+        P_right = numpy2torch(P_right[:3]).unsqueeze(0)
         P_right = P_right.to(self.device)
 
         imgs = [img_left, img_right]
@@ -178,7 +178,7 @@ class CDRNetInferencer:
         pred_2ds, pred_3ds = self.model(imgs, Ps)
 
         for i in range(2):
-            pred_2ds[i] = to_cpu(pred_2ds[i].squeeze(0) * 4.0)
+            pred_2ds[i] = to_cpu(pred_2ds[i].squeeze(0))
         pred_3ds = to_cpu(pred_3ds.squeeze(0))
 
         return pred_2ds, pred_3ds
