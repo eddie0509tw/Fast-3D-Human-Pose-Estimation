@@ -170,32 +170,48 @@ class CDRNet(nn.Module):
 
         return point_3d
 
-    def SII(self, kps, proj_mats, n_iters=5):
+    def sii(self, proj_matricies, points, number_of_iterations=2):
         """
-        kps: (batch_size, nj, n_views, 2)
-        proj_mats: (batch_size, nj, n_views, 3, 4)
+        This module lifts B 2d detections obtained from N viewpoints to 3D
+        using the Direct Linear Transform method.
+        It computes the eigenvector associated to the smallest eigenvalue
+        using the Shifted Inverse Iterations algorithm.
+        Args:
+            proj_matricies torch tensor of shape (B, N, 3, 4):
+                sequence of projection matricies
+            points torch tensor of of shape (B, N, 2):
+                sequence of points' coordinates
+        Returns:
+            point_3d torch tensor of shape (B, 3): triangulated points
         """
-        batch_size, nj, _, _ = kps.size()
-        kps_ = kps.reshape(batch_size, nj, self.n_views, 2, 1).contiguous()
-        uv = proj_mats[:, :, :, 2:3].repeat(1, 1, 1, 2, 1) * kps_
 
-        A = (uv - proj_mats[:, :, :, :2])
-        A = A.reshape(-1, nj,  2*self.n_views, proj_mats.size(-1)).contiguous()
+        batch_size = proj_matricies.shape[0]
+        n_views = proj_matricies.shape[1]
 
-        AtA = A.permute(0, 1, 3, 2) @ A
-        B_inv = AtA - 0.001 * torch.eye(AtA.size(-1)).to(AtA.device)
-        B_inv = B_inv.to(torch.float32)
+        # assemble linear system
+        A = proj_matricies[:, :, 2:3].expand(batch_size, n_views, 2, 4) \
+            * points.view(-1, n_views, 2, 1)
+        A -= proj_matricies[:, :, :2]
+        A = A.view(batch_size, -1, 4)
 
-        X = torch.randn((batch_size, nj, 4, 1), dtype=torch.float32)
-        X = X.to(B_inv.device)
+        AtA = A.permute(0, 2, 1).matmul(A).float()
+        II = torch.eye(4).reshape(1, 4, 4)
+        II = II.repeat(batch_size, 1, 1).to(A.device)
+        B = AtA + 0.001 * II
+        # initialize normalized random vector
+        bk = torch.rand(batch_size, 4, 1).float().to(AtA.device)
+        norm_bk = torch.sqrt(bk.permute(0, 2, 1).matmul(bk))
+        bk = bk / norm_bk
+        for k in range(number_of_iterations):
+            bk = torch.linalg.solve(B, bk)
+            norm_bk = torch.sqrt(bk.permute(0, 2, 1).matmul(bk))
+            bk = bk / norm_bk
 
-        for _ in range(n_iters):
-            X = torch.linalg.solve(B_inv, X)
-            X /= torch.norm(X, dim=1, keepdim=True)
+        point_3d_homo = -bk.squeeze(-1)
+        point_3d = (point_3d_homo.transpose(1, 0)[:-1] /
+                    point_3d_homo.transpose(1, 0)[-1]).transpose(1, 0)
 
-        X = X.squeeze(-1)
-
-        return (X[..., :3].mT / X[..., 3].unsqueeze(-1).mT).mT
+        return point_3d
 
     def forward(self, xs, proj_list):
         """
@@ -237,7 +253,7 @@ class CDRNet(nn.Module):
         # extract 3D locations of joints from Direct Linear Transform
         pred_3ds = []
         for i in range(self.nj):
-            kps_3d = self.dlt(projs[:, i, :, :, :], kps[:, i, :, :])
+            kps_3d = self.sii(projs[:, i, :, :, :], kps[:, i, :, :])
             pred_3ds.append(kps_3d)
         pred_3ds = torch.stack(pred_3ds, axis=1)
 

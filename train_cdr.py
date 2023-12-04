@@ -91,7 +91,8 @@ def run(config):
                 for pred, target in zip(pred_2ds, targets):
                     loss += criterion(pred, target, target_weight)
             else:
-                loss += criterion(pred_3ds, target_3d, target_weight)
+                loss += criterion(
+                    pred_3ds / 100, target_3d / 100, target_weight)
 
             loss.backward()
             optimizer.step()
@@ -136,7 +137,8 @@ def run(config):
                     for pred, target in zip(pred_2ds, targets):
                         loss += criterion(pred, target, target_weight)
                 else:
-                    loss += criterion(pred_3ds, target_3d, target_weight)
+                    loss += criterion(
+                        pred_3ds / 100, target_3d / 100, target_weight)
 
                 val_loss += loss.item()
 

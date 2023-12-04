@@ -31,7 +31,6 @@ class JointsMSELoss(nn.Module):
         return loss / num_joints
 
 
-
 class MPJPELoss(nn.Module):
     def __init__(self, use_target_weight):
         super(MPJPELoss, self).__init__()
