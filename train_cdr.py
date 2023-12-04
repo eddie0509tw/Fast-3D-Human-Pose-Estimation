@@ -55,6 +55,8 @@ def run(config):
         optimizer, config.TRAIN.LR_STEP, config.TRAIN.LR_FACTOR
     )
 
+    val_best_loss = 1e10
+
     for epoch in range(config.TRAIN.EPOCH):
         train_loss, val_loss = 0, 0
 
@@ -152,12 +154,12 @@ def run(config):
               .format(val_loss / valid_loader.__len__()))
 
         # save best model
-        # if val_class_acc > best_acc:
-        #    best_acc = val_class_acc
+        if val_loss < val_best_loss:  # the loss is identical to the metric
+            val_best_loss = val_loss
 
-        #    save_folder = os.path.join(model_path, "best.pth")
-        #    torch.save(model.state_dict(), save_folder)
-        #    logger.info("Current best model is saved!")
+            save_folder = os.path.join(model_path, "best.pth")
+            torch.save(model.state_dict(), save_folder)
+            logger.info("Current best model is saved!")
 
         # save latest model
         save_folder = os.path.join(model_path, "latest.pth")

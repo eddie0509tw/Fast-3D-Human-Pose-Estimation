@@ -144,7 +144,7 @@ class CDRNetInferencer:
         self.model = model.to(device)
 
         # Load the model weights
-        weight_path = os.path.join("weights", config.MODEL.NAME, "latest.pth")
+        weight_path = os.path.join("weights", config.MODEL.NAME, "best.pth")
         if os.path.exists(weight_path):
             model.load_state_dict(torch.load(weight_path, map_location=device))
         else:
