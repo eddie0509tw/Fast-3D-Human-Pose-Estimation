@@ -64,7 +64,7 @@ class MADS3DDataset(MADS2DDataset):
         }
 
         img_out = [img_left.float(), img_right.float()]
-        target_2d_out = [target_2d_left.float(), target_2d_right.float()]
+        target_2d_out = [target_2d_left.float()/4, target_2d_right.float()/4]
         proj_out = [P_left.astype(np.float32), P_right.astype(np.float32)]
 
         return img_out, target_3d, proj_out, \

@@ -5,11 +5,11 @@ import torch.nn.functional as F
 
 
 class Encoder(nn.Module):
-    def __init__(self, pretrained=True, output_size=(18, 18)):
+    def __init__(self, weights='IMAGENET1K_V1', output_size=(18, 18)):
         super(Encoder, self).__init__()
-        self.pretrained = pretrained
+        self.pretrained = weights
 
-        self.model = models.resnet152(pretrained=self.pretrained)
+        self.model = models.resnet101(weights=self.pretrained)
 
         # Ignore the FC layer and adjust the pooling layer
         self.encoder = torch.nn.Sequential(*list(self.model.children())[:-2])
@@ -46,11 +46,13 @@ class Decoder(nn.Module):
 
             last_dim = hidden_dim
         self.conv_last = nn.Conv2d(last_dim, self.nj, 1)
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         for i in range(self.nl):
             x = self.ct_layers[i](x)
         x = self.conv_last(x)
+        x = self.sigmoid(x)
         return x
 
 
@@ -176,12 +178,12 @@ class CDRNet(nn.Module):
     def __init__(
                 self, n_views=2, nj=19, nl=3, 
                 decoder_in_dim=2048, decoder_feat_dim=[256, 256, 256],
-                encoder_pretrained=True, fusion_in_dim=2048,
+                encoder_pretrained='IMAGENET1K_V1', fusion_in_dim=2048,
                 fusion_hid_ch1=300, fusion_hid_ch2=300):
         super(CDRNet, self).__init__()
 
         self.encoder = Encoder(
-                                pretrained=encoder_pretrained)
+                                weights=encoder_pretrained)
         self.decoder = Decoder(
                                 nj=nj, in_dim=decoder_in_dim,
                                 feat_dims=decoder_feat_dim)
@@ -196,11 +198,11 @@ class CDRNet(nn.Module):
         b, c, h, w = feat.size()
         x = torch.arange(1, w + 1, 1).to(feat.device)
         y = torch.arange(1, h + 1, 1).to(feat.device)
-        grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
+        grid_x, grid_y = torch.meshgrid(x, y, indexing='xy')
 
-        cx = torch.sum(grid_x * feat, dim=[2, 3]) / torch.sum(feat, dim=[2, 3])
+        cx = torch.sum(grid_x * feat, dim=[2, 3]) / (torch.sum(feat, dim=[2, 3]) + 1e-6)
         cx = (cx - 1).unsqueeze(-1)
-        cy = torch.sum(grid_y * feat, dim=[2, 3]) / torch.sum(feat, dim=[2, 3])
+        cy = torch.sum(grid_y * feat, dim=[2, 3]) / (torch.sum(feat, dim=[2, 3]) + 1e-6)
         cy = (cy - 1).unsqueeze(-1)
 
         return torch.cat([cx, cy], dim=-1)
@@ -222,14 +224,16 @@ class CDRNet(nn.Module):
         B_inv = B_inv.to(torch.float32)
 
         X = torch.randn((batch_size, nj, 4, 1), dtype=torch.float32)
-        X = X.to(B_inv.device)
+        X = X.to(B_inv.device).requires_grad_(True)
 
         for _ in range(n_iters):
-            X = torch.linalg.solve(B_inv, X)
-            X /= torch.norm(X, dim=1, keepdim=True)
+            X = torch.linalg.solve(B_inv, X.clone())  # Clone X to avoid inplace modification
+            X_norm = torch.norm(X.detach(), dim=1, keepdim=True)
+            X_normalized = X / X_norm
+            X = X_normalized
 
         X = X.squeeze(-1)
-
+        
         return (X[..., :3].mT / X[..., 3].unsqueeze(-1).mT).mT
 
     def forward(self, xs, proj_list):
@@ -256,7 +260,7 @@ class CDRNet(nn.Module):
                 [kps, self.process_heathap(h).unsqueeze(2)], axis=2)
             proj_ = proj_list[i].unsqueeze(1).repeat(1, kps.size(1), 1, 1)
             projs = torch.cat([projs, proj_.unsqueeze(2)], axis=2)
-
+        
         pred_3ds = self.SII(kps, projs)
         pred_2ds = [kps[:, :, 0, :].squeeze(2), kps[:, :, 1, :].squeeze(2)]
 
@@ -265,8 +269,13 @@ class CDRNet(nn.Module):
 
 if __name__ == '__main__':
     model = CDRNet()
+    torch.autograd.set_detect_anomaly(True)
     xs = [torch.randn(32, 3, 256, 256) for _ in range(2)]
     proj_list = [torch.randn(32, 4, 4) for _ in range(2)]
     pred_2ds, pred_3ds = model(xs, proj_list)
     print(pred_2ds[0].shape)
     print(pred_3ds.shape)
+    loss_2d = pred_2ds[0] - torch.randn(32, 19, 2)
+    loss_3d = pred_3ds - torch.randn(32, 19, 3)
+    loss_2d.sum().backward()
+    loss_3d.sum().backward()

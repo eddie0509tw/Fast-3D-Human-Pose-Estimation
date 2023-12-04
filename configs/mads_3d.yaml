@@ -35,7 +35,7 @@ MODEL:
       nl : 3
       decoder_in_dim: 2048
       decoder_feat_dim: [256, 256, 256]
-      encoder_pretrained: true
+      encoder_pretrained: 'IMAGENET1K_V1'
       fusion_in_dim: 2048
       fusion_hid_ch1: 300
       fusion_hid_ch2: 300
