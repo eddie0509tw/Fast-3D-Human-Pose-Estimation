@@ -1,11 +1,14 @@
 import cv2
 import os
 import yaml
+import tqdm
 import argparse
 import torch
 import numpy as np
 import torchvision.transforms as transforms
+import matplotlib
 import matplotlib.pyplot as plt
+import PIL.Image as pil
 from easydict import EasyDict
 from scipy.spatial.transform import Rotation
 
@@ -13,6 +16,8 @@ from tools.load import LoadMADSData
 from tools.common import project_3d_to_2d, get_projection_matrix
 from tools.utils import get_max_preds
 from models.poseresnet import PoseResNet
+
+matplotlib.use("Agg")
 
 
 def triangulation(P1, P2, pts1, pts2):
@@ -79,7 +84,7 @@ def plot_body(ax, points, color, label):
     ax.plot([], [], c=color, label=label)
 
 
-def visualize_pose_3d(pose_3d, pts3D):
+def plot_pose_3d(pose_3d, pts3D):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     ax.set_xlim3d(-600, 600)
@@ -101,12 +106,18 @@ def visualize_pose_3d(pose_3d, pts3D):
     ax.set_title('3D Human Skeleton')
     ax.legend()
 
-    # Show the plot
-    # plt.show()
-    plt.savefig('pose_3d.png')
+    # Convert the plot to numpy array
+    canvas = fig.canvas
+    canvas.draw()
+    width, height = canvas.get_width_height()
+    image_array = np.frombuffer(canvas.tostring_rgb(), dtype='uint8')
+    image_array = image_array.reshape(height, width, 3)
+    plt.close()
+
+    return image_array
 
 
-def visualize_pose_2d(gt_joints, pred_joints, imgs):
+def plot_pose_2d(gt_joints, pred_joints, imgs):
     def plot_joints(joints, img, color):
         for k in range(joints.shape[0]):
             joint = joints[k]
@@ -118,7 +129,8 @@ def visualize_pose_2d(gt_joints, pred_joints, imgs):
         plot_joints(pred, img, (0, 255, 0))
 
     img = np.concatenate(imgs, axis=1)
-    cv2.imwrite('pose_2d.png', img)
+
+    return img
 
 
 class BaseLine:
@@ -162,9 +174,10 @@ class BaseLine:
         preds_left = self.inference(img_left.copy()).squeeze(0)
         preds_right = self.inference(img_right.copy()).squeeze(0)
 
-        visualize_pose_2d((pose_2d_left, pose_2d_right),
-                          (preds_left, preds_right),
-                          (img_left, img_right))
+        img_2d = plot_pose_2d((pose_2d_left, pose_2d_right),
+                              (preds_left, preds_right),
+                              (img_left, img_right))
+        img_2d = cv2.cvtColor(img_2d, cv2.COLOR_BGR2RGB)
 
         PL = get_projection_matrix(meta['cam_left']['intrinsics'],
                                    meta['cam_left']['rotation'],
@@ -174,7 +187,16 @@ class BaseLine:
                                    meta['cam_right']['translation'])
 
         pts3D = triangulation(PL, PR, preds_left, preds_right)
-        visualize_pose_3d(np.array(meta['pose_3d']), pts3D)
+        img_3d = plot_pose_3d(np.array(meta['pose_3d']), pts3D)
+
+        ratio = img_2d.shape[1] / img_3d.shape[1]
+        img_3d = cv2.resize(
+            img_3d,
+            (int(img_3d.shape[1] * ratio), int(img_3d.shape[0] * ratio))
+        )
+
+        img = np.vstack((img_2d, img_3d))
+        return img
 
 
 if __name__ == "__main__":
@@ -192,6 +214,14 @@ if __name__ == "__main__":
 
     method = BaseLine(config)
 
-    for img_left, img_right, meta in MADS_loader:
-        method.estimate(img_left, img_right, meta)
-        exit(1)
+    images = []
+    for img_left, img_right, meta in tqdm.tqdm(MADS_loader,
+                                               total=len(MADS_loader)):
+        pose_img = method.estimate(img_left, img_right, meta)
+
+        im = pil.fromarray(pose_img)
+        images.append(im)
+
+    images[0].save('pose.gif',
+                   save_all=True, append_images=images[1:],
+                   optimize=False, duration=40, loop=0)

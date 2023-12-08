@@ -117,28 +117,36 @@ class CDRNet(nn.Module):
             raise ValueError("Pretrained model '{}' does not exist."
                              .format(pretrained))
 
-    def process_heathap(self, feat):
+    def process_heatmap(self, heatmap):
         """
-        This function computes the 2D location of each joint j by simply
-        integrating heatmaps across spatial axes.
-        That is, the 2D location of each joint j reqpresents the center of mass
+        This function computes the 2D location of each joint by integrating
+        heatmaps across spatial axes.
+        That is, the 2D location of each joint j represents the center of mass
         of the jth feature map.
         Args:
-            feat (batch_size, num_joints, N, N): heatmap features
+            heatmap (batch_size, num_joints, N, N): heatmap features
+        Returns:
+            cxy (batch_size, num_joints, 2): 2D locations of the joints
         """
+        b, j, h, w = heatmap.size()
 
-        feat = torch.sigmoid(feat)
-        _, _, h, w = feat.size()
-        x = torch.arange(1, w + 1, 1).to(feat.device)
-        y = torch.arange(1, h + 1, 1).to(feat.device)
+        # Perform softmax along spatial axes.
+        heatmap = heatmap.reshape(b, j, -1)
+        heatmap = nn.functional.softmax(heatmap, dim=2)
+        heatmap = heatmap.reshape(b, j, h, w)
+
+        # Compute 2D locations of the joints as the center of mass of the
+        # corresponding heatmaps.
+        x = torch.arange(w, dtype=torch.float, device=heatmap.device)
+        y = torch.arange(h, dtype=torch.float, device=heatmap.device)
         grid_x, grid_y = torch.meshgrid(x, y, indexing='xy')
 
-        cx = torch.sum(grid_x * feat, dim=[2, 3]) / torch.sum(feat, dim=[2, 3])
-        cx = (cx - 1).unsqueeze(-1)
-        cy = torch.sum(grid_y * feat, dim=[2, 3]) / torch.sum(feat, dim=[2, 3])
-        cy = (cy - 1).unsqueeze(-1)
+        cx = torch.sum(grid_x * heatmap, dim=[2, 3])
+        cy = torch.sum(grid_y * heatmap, dim=[2, 3])
 
-        return torch.cat([cx, cy], dim=-1)
+        cxy = torch.stack([cx, cy], dim=-1)
+
+        return cxy
 
     def dlt(self, proj_matricies, points):
         """
@@ -236,7 +244,7 @@ class CDRNet(nn.Module):
             h = self.decoder(f_out[i])
             heatmap_size = h.size(2)
 
-            kp = self.process_heathap(h)
+            kp = self.process_heatmap(h)
 
             # multiply by a factor to scale back to original image size
             kp = kp * (img_size / heatmap_size)
@@ -253,7 +261,7 @@ class CDRNet(nn.Module):
         # extract 3D locations of joints from Direct Linear Transform
         pred_3ds = []
         for i in range(self.nj):
-            kps_3d = self.sii(projs[:, i, :, :, :], kps[:, i, :, :])
+            kps_3d = self.dlt(projs[:, i, :, :, :], kps[:, i, :, :])
             pred_3ds.append(kps_3d)
         pred_3ds = torch.stack(pred_3ds, axis=1)
 

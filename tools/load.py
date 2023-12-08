@@ -13,8 +13,8 @@ from dataset.transforms import get_affine_transform
 
 
 class LoadMADSData:
-    def __init__(self, data_path, image_size):
-        self.metadata = self._gen_metadata(data_path)
+    def __init__(self, data_path, image_size, movement="HipHop"):
+        self.metadata = self._gen_metadata(data_path, movement)
         self.frame_idx = list(range(len(self.metadata)))
 
         self.image_size = image_size
@@ -68,13 +68,13 @@ class LoadMADSData:
 
         return left_img, right_img, meta
 
-    def _gen_metadata(self, data_path):
+    def _gen_metadata(self, data_path, movement):
         left_img_paths = sorted(glob.glob(
-            os.path.join(data_path, "**/**/left/*.jpg")))
+            os.path.join(data_path, movement, "**/left/*.jpg")))
         right_img_paths = sorted(glob.glob(
-            os.path.join(data_path, "**/**/right/*.jpg")))
+            os.path.join(data_path, movement, "**/right/*.jpg")))
         gt_pose_paths = sorted(glob.glob(
-            os.path.join(data_path, "**/**/pose/*.json")))
+            os.path.join(data_path, movement, "**/pose/*.json")))
 
         assert len(left_img_paths) == len(right_img_paths) \
             == len(gt_pose_paths), \

@@ -17,16 +17,52 @@ class JointsMSELoss(nn.Module):
             (batch_size, num_joints, -1)).split(1, 1)
         loss = 0
 
-        for idx in range(num_joints):
-            heatmap_pred = heatmaps_pred[idx].squeeze()
-            heatmap_gt = heatmaps_gt[idx].squeeze()
+        for i in range(num_joints):
+            heatmap_pred = heatmaps_pred[i].squeeze()
+            heatmap_gt = heatmaps_gt[i].squeeze()
             if self.use_target_weight:
                 loss += 0.5 * self.criterion(
-                    heatmap_pred.mul(target_weight[:, idx]),
-                    heatmap_gt.mul(target_weight[:, idx])
+                    heatmap_pred * target_weight[:, i],
+                    heatmap_gt * target_weight[:, i]
                 )
             else:
                 loss += 0.5 * self.criterion(heatmap_pred, heatmap_gt)
+
+        return loss / num_joints
+
+
+class JointsMSESmoothLoss(nn.Module):
+    def __init__(self, use_target_weight, threshold=500):
+        super(JointsMSESmoothLoss, self).__init__()
+        self.use_target_weight = use_target_weight
+        self.threshold = threshold
+
+    def cdist(self, x, y):
+        diff = torch.sum((x - y) ** 2, dim=1)
+        diff[diff > self.threshold] = \
+            torch.pow(diff[diff > self.threshold], 0.1) \
+            * (self.threshold ** 0.9)
+        return diff.mean()
+
+    def forward(self, output, target, target_weight):
+        loss = torch.zeros(1, device=output.device)
+
+        num_joints = output.size(1)
+
+        output = output.split(1, 1)
+        target = target.split(1, 1)
+
+        for i in range(num_joints):
+            out = output[i].squeeze(1)
+            tar = target[i].squeeze(1)
+
+            if self.use_target_weight:
+                loss += self.cdist(
+                    out * target_weight[:, i],
+                    tar * target_weight[:, i]
+                )
+            else:
+                loss += self.cdist(out, tar)
 
         return loss / num_joints
 
@@ -37,7 +73,7 @@ class MPJPELoss(nn.Module):
         self.use_target_weight = use_target_weight
 
     def cdist(self, x, y):
-        return torch.sqrt((x - y) ** 2 + 1e-15).mean()
+        return torch.sqrt(torch.sum((x - y) ** 2, dim=1) + 1e-15).mean()
 
     def forward(self, output, target, target_weight):
         loss = torch.zeros(1, device=output.device)

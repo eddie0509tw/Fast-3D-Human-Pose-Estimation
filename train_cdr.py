@@ -10,7 +10,7 @@ from easydict import EasyDict
 from tools.load import load_data
 from tools.utils import setup_logger
 from models.cdrnet import CDRNet
-from models.loss import MPJPELoss
+from models.loss import JointsMSESmoothLoss
 
 
 def run(config):
@@ -48,7 +48,7 @@ def run(config):
         model.init_weights(config.MODEL.PRETRAINED)
     model = model.to(device)
 
-    criterion = MPJPELoss(config.LOSS.USE_TARGET_WEIGHT)
+    criterion = JointsMSESmoothLoss(config.LOSS.USE_TARGET_WEIGHT)
 
     optimizer = torch.optim.Adam(model.parameters(), config.TRAIN.LR)
     scheduler = MultiStepLR(
@@ -56,6 +56,10 @@ def run(config):
     )
 
     val_best_loss = 1e10
+
+    n_joints = 19
+    base_joint = 1
+    scale_3d = 0.1
 
     for epoch in range(config.TRAIN.EPOCH):
         train_loss, val_loss = 0, 0
@@ -88,13 +92,20 @@ def run(config):
             optimizer.zero_grad()
 
             pred_2ds, pred_3ds = model(imgs, Ps)
+
+            pred_3ds[:, torch.arange(n_joints) != base_joint] \
+                -= pred_3ds[:, base_joint:base_joint+1]
+            target_3d[:, torch.arange(n_joints) != base_joint] \
+                -= target_3d[:, base_joint:base_joint+1]
+
             loss = torch.zeros(1, device=device)
             if epoch < config.TRAIN.WARMUP:
                 for pred, target in zip(pred_2ds, targets):
                     loss += criterion(pred, target, target_weight)
             else:
-                loss += criterion(
-                    pred_3ds / 100, target_3d / 100, target_weight)
+                loss += criterion(pred_3ds * scale_3d,
+                                  target_3d * scale_3d,
+                                  target_weight)
 
             loss.backward()
             optimizer.step()
@@ -139,8 +150,9 @@ def run(config):
                     for pred, target in zip(pred_2ds, targets):
                         loss += criterion(pred, target, target_weight)
                 else:
-                    loss += criterion(
-                        pred_3ds / 100, target_3d / 100, target_weight)
+                    loss += criterion(pred_3ds * scale_3d,
+                                      target_3d * scale_3d,
+                                      target_weight)
 
                 val_loss += loss.item()
 
