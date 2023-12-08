@@ -25,11 +25,11 @@ MODEL:
     - 64
 TRAIN:
   BATCH_SIZE: 32
-  EPOCH: 100
-  LR: 0.001
+  WARMUP: 20
+  EPOCH: 50
+  LR: 0.0001
   LR_STEP:
-  - 60
-  - 80
+  - 40
   LR_FACTOR: 0.1
 TEST:
   BATCH_SIZE: 32

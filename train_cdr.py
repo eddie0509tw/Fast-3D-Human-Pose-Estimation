@@ -69,7 +69,7 @@ def run(config):
         # -------------------
 
         model.train()
-        logger.info(('\n' + '%10s' * 3) % ('Epoch', 'lr', 'loss'))
+        logger.info(('\n' + '%10s' * 3) % ('Epoch', 'lr', 'loss', 'grad_norm'))
         pbar = enumerate(train_loader)
         pbar = tqdm.tqdm(pbar, total=len(train_loader))
         for i, (image_left, image_right, target_3d,
@@ -108,13 +108,20 @@ def run(config):
                                   target_weight)
 
             loss.backward()
+
+            grad_norm = torch.norm(
+                torch.cat([p.grad.flatten() for p in model.parameters()]))
+
+            if not epoch < config.TRAIN.WARMUP:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 100)
+
             optimizer.step()
 
             train_loss += loss.item()
 
             s = ('%10s' + '%10.4g' * 2) \
                 % ('%g/%g' % (epoch + 1, config.TRAIN.EPOCH),
-                   optimizer.param_groups[0]["lr"], loss)
+                   optimizer.param_groups[0]["lr"], loss, grad_norm)
             pbar.set_description(s)
             pbar.update(0)
 

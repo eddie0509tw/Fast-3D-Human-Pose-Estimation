@@ -32,13 +32,13 @@ class JointsMSELoss(nn.Module):
 
 
 class JointsMSESmoothLoss(nn.Module):
-    def __init__(self, use_target_weight, threshold=500):
+    def __init__(self, use_target_weight, threshold=400):
         super(JointsMSESmoothLoss, self).__init__()
         self.use_target_weight = use_target_weight
         self.threshold = threshold
 
     def cdist(self, x, y):
-        diff = torch.sum((x - y) ** 2, dim=1)
+        diff = (x - y) ** 2
         diff[diff > self.threshold] = \
             torch.pow(diff[diff > self.threshold], 0.1) \
             * (self.threshold ** 0.9)
