@@ -69,7 +69,7 @@ def run(config):
         # -------------------
 
         model.train()
-        logger.info(('\n' + '%10s' * 3) % ('Epoch', 'lr', 'loss', 'grad_norm'))
+        logger.info(('\n' + '%10s' * 4) % ('Epoch', 'lr', 'loss', 'grad_norm'))
         pbar = enumerate(train_loader)
         pbar = tqdm.tqdm(pbar, total=len(train_loader))
         for i, (image_left, image_right, target_3d,
@@ -103,10 +103,15 @@ def run(config):
                 for pred, target in zip(pred_2ds, targets):
                     loss += criterion(pred, target, target_weight)
             else:
-                loss += criterion(pred_3ds * scale_3d,
-                                  target_3d * scale_3d,
-                                  target_weight)
+                loss += config.LOSS_3D_WEIGHT * criterion(pred_3ds * scale_3d,
+                                      target_3d * scale_3d,
+                                      target_weight)
+                loss_2d = 0
+                for pred, target in zip(pred_2ds, targets):
+                    loss_2d += criterion(pred, target, target_weight)
 
+                loss += loss_2d
+       
             loss.backward()
 
             grad_norm = torch.norm(
@@ -119,7 +124,7 @@ def run(config):
 
             train_loss += loss.item()
 
-            s = ('%10s' + '%10.4g' * 2) \
+            s = ('%10s' + '%10.4g' * 3) \
                 % ('%g/%g' % (epoch + 1, config.TRAIN.EPOCH),
                    optimizer.param_groups[0]["lr"], loss, grad_norm)
             pbar.set_description(s)
@@ -157,6 +162,7 @@ def run(config):
                     for pred, target in zip(pred_2ds, targets):
                         loss += criterion(pred, target, target_weight)
                 else:
+                    # Focus on 3d loss minimization currently
                     loss += criterion(pred_3ds * scale_3d,
                                       target_3d * scale_3d,
                                       target_weight)
@@ -173,7 +179,7 @@ def run(config):
               .format(val_loss / valid_loader.__len__()))
 
         # save best model
-        if val_loss < val_best_loss:  # the loss is identical to the metric
+        if val_loss < val_best_loss and epoch > config.TRAIN.WARMUP:  # the loss is identical to the metric
             val_best_loss = val_loss
 
             save_folder = os.path.join(model_path, "best.pth")

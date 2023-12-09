@@ -156,7 +156,7 @@ class CDRNetInferencer:
         self.model = model.to(device)
 
         # Load the model weights
-        weight_path = os.path.join("weights", config.MODEL.NAME, "latest.pth")
+        weight_path = os.path.join("weights", config.MODEL.NAME, "best.pth")
         if os.path.exists(weight_path):
             model.load_state_dict(torch.load(weight_path, map_location=device))
         else:
@@ -214,16 +214,15 @@ class CDRNetInferencer:
 
         img_3d = plot_pose_3d(np.array(meta['pose_3d']), pred_3ds)
 
-        print(np.array(meta['pose_3d']), pred_3ds)
+        #print(np.array(meta['pose_3d']), pred_3ds)
         ratio = img_2d.shape[1] / img_3d.shape[1]
         img_3d = cv2.resize(
             img_3d,
             (int(img_3d.shape[1] * ratio), int(img_3d.shape[0] * ratio))
         )
-
         img = np.vstack((img_2d, img_3d))
         cv2.imwrite("test.jpg", img)
-        exit(1)
+
         return img
 
 

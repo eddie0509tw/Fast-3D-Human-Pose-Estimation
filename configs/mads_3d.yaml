@@ -10,8 +10,8 @@ DATASET:
   ROT_FACTOR: 30
   SCALE_FACTOR: 0.25
 MODEL:
-  NAME: mads_3d_256_101
-  PRETRAINED: 'weights/mpii_256_101/best.pth'
+  NAME: mads_3d_256_101_combined
+  PRETRAINED: 'weights/mpii_256_101/latest.pth'
   IMAGE_SIZE:
   - 256
   - 256
@@ -31,6 +31,7 @@ TRAIN:
   LR_STEP:
   - 40
   LR_FACTOR: 0.1
+  LOSS_3D_WEIGHT: 4
 TEST:
   BATCH_SIZE: 32
 LOSS:
