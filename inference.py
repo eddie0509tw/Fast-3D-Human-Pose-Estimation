@@ -19,29 +19,6 @@ from models.cdrnet import CDRNet
 matplotlib.use("Agg")
 
 
-def triangulation(P1, P2, pts1, pts2):
-    pts3D = []
-
-    for pt1, pt2 in zip(pts1, pts2):
-        pt1_ = np.array([pt1[0], pt1[1], 1])
-        pt2_ = np.array([pt2[0], pt2[1], 1])
-
-        pt1_ = np.cross(pt1_, np.identity(pt1_.shape[0]) * -1)
-        pt2_ = np.cross(pt2_, np.identity(pt2_.shape[0]) * -1)
-
-        M1 = np.array([pt1[1] * P1[2] - P1[1], P1[0] - pt1[0] * P1[2]])
-        M2 = np.array([pt2[1] * P2[2] - P2[1], P2[0] - pt2[0] * P2[2]])
-        M = np.vstack((M1, M2))
-
-        e, v = np.linalg.eig(M.T @ M)
-        idx = np.argmin(e)
-        pt3 = v[:, idx]
-        pt3 = (pt3 / pt3[-1])[:3]
-        pts3D.append(pt3)
-
-    return np.array(pts3D)
-
-
 def project(meta):
     K_left = meta['cam_left']['intrinsics']
     R_left = meta['cam_left']['rotation']
@@ -237,7 +214,7 @@ if __name__ == "__main__":
         config = EasyDict(yaml.safe_load(f))
 
     MADS_loader = LoadMADSData("data/MADS_extract/valid",
-                               config.MODEL.IMAGE_SIZE)
+                               config.MODEL.IMAGE_SIZE, "Taichi")
 
     method = CDRNetInferencer(config)
 
