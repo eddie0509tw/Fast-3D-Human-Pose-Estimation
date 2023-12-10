@@ -6,7 +6,7 @@ from scipy.spatial.transform import Rotation
 from .common import project_3d_to_2d
 import torch
 import cv2
-
+import os
 matplotlib.use("Agg")
 
 
@@ -164,3 +164,15 @@ def to_cpu(x):
                         .format(type(x)))
 
     return x
+
+
+def plot_loss(losses, save_path, title):
+    os.makedirs(save_path, exist_ok=True)
+    plt.figure()
+    plt.plot(losses)
+    plt.xlabel("Epoch")
+    plt.ylabel(title)
+    plt.title(f"{title} vs Epoch")
+    plt.savefig(save_path)
+    plt.show()
+    plt.close()

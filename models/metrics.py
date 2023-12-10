@@ -68,7 +68,7 @@ def calc_mpjpe(
                 gt_3d,
                 gt_2d_left,
                 gt_2d_right,
-                target_weight=None):  
+                target_weight=None):
     pred_2d_left = pred_2ds[0]
     pred_2d_right = pred_2ds[1]
     if len(pred_3ds.shape) < 3:

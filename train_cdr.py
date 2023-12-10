@@ -8,7 +8,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from easydict import EasyDict
 
 from tools.load import load_data
-from tools.utils import setup_logger, to_cpu
+from tools.utils import setup_logger, to_cpu, plot_loss
 from models.cdrnet import CDRNet
 from models.loss import JointsMSESmoothLoss
 from models.metrics import calc_mpjpe
@@ -61,6 +61,9 @@ def run(config):
     n_joints = 19
     base_joint = 1
     scale_3d = 0.1
+    train_losses = []
+    val_losses = []
+    val_errors = []
 
     for epoch in range(config.TRAIN.EPOCH):
         train_loss, val_loss = 0, 0
@@ -104,7 +107,7 @@ def run(config):
                 for pred, target in zip(pred_2ds, targets):
                     loss += criterion(pred, target, target_weight)
             else:
-                loss += config.LOSS_3D_WEIGHT * \
+                loss += config.TRAIN.LOSS_3D_WEIGHT * \
                     criterion(
                         pred_3ds * scale_3d, target_3d * scale_3d,
                         target_weight)
@@ -165,10 +168,16 @@ def run(config):
                     for pred, target in zip(pred_2ds, targets):
                         loss += criterion(pred, target, target_weight)
                 else:
-                    # Focus on 3d loss minimization currently
-                    loss += criterion(pred_3ds * scale_3d,
-                                      target_3d * scale_3d,
-                                      target_weight)
+                    loss += config.TRAIN.LOSS_3D_WEIGHT * \
+                        criterion(
+                            pred_3ds * scale_3d, target_3d * scale_3d,
+                            target_weight)
+                    loss_2d = 0
+                    for pred, target in zip(pred_2ds, targets):
+                        loss_2d += criterion(pred, target, target_weight)
+
+                    loss += loss_2d
+
                 for i in range(2):
                     pred_2ds[i] = to_cpu(pred_2ds[i])
                 pred_3ds = to_cpu(pred_3ds)
@@ -181,20 +190,25 @@ def run(config):
                     pred_2ds, pred_3ds, target_3d,
                     target_left, target_right,
                     target_weight)
-               
+
                 error += err[1]  # 3d MPJPE
 
                 val_loss += loss.item()
 
+        train_loss /= train_loader.__len__()
+        val_loss /= valid_loader.__len__()
         error /= valid_loader.__len__()
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
+        val_errors.append(error)
         # --------------------------
         # Logging Stage
         # --------------------------
         print("Epoch: ", epoch + 1)
         print("train_loss: {}"
-              .format(train_loss / train_loader.__len__()))
+              .format(train_loss))
         print("val_loss: {}"
-              .format(val_loss / valid_loader.__len__()))
+              .format(val_loss))
         print("val_error: {}"
               .format(error))
 
@@ -210,6 +224,9 @@ def run(config):
         save_folder = os.path.join(model_path, "latest.pth")
         torch.save(model.state_dict(), save_folder)
 
+    plot_loss(train_losses, "/plot", "Training Loss")
+    plot_loss(val_losses, "/plot", "Validation Loss")
+    plot_loss(val_errors, "/plot", "MPJPE")
     logger.info("Training is done!")
 
 
