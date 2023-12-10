@@ -16,7 +16,7 @@ class Cutout(object):
     def __call__(self, img):
         """
         Args:
-            img (Tensor): Tensor image of size (C, H, W).
+            img (Tensor): Numpy array of size (H, W, C).
         Returns:
             Tensor: Image with n_holes of dimension length x length cut out of it.
         """
@@ -41,3 +41,51 @@ class Cutout(object):
         img[~mask] = 128
 
         return img
+
+
+class HideNSeek(object):
+    """Randomly mask out patches from an image.
+
+    Args:
+        n_holes (int): Number of patches to cut out of each image.
+        length (int): The length (in pixels) of each square patch.
+    """
+    def __init__(self, n_patches, p_hide=0.4):
+        self.n_patches = n_patches
+        self.p_hide = p_hide
+
+    def __call__(self, img):
+        """
+        Args:
+            img : Numpy array of size (H, W, C).
+        Returns:
+            Numpy array: The numpy array of img that contains some hidden patches.
+        """
+        h, w = img.shape[:2]
+
+        length = h // self.n_patches
+
+        grid_x, grid_y = np.meshgrid(np.arange(self.n_patches), np.arange(self.n_patches))
+
+        x_f = np.ravel(grid_x)
+        y_f = np.ravel(grid_y)
+        grid_pts = np.array(list(zip(x_f, y_f)))
+
+        n_choices = int(self.p_hide * len(grid_pts))
+        random_indices = np.random.choice(
+            np.arange(len(grid_pts)), size=int(n_choices), replace=False)
+  
+        selected_pts = grid_pts[random_indices]
+
+        for pt in selected_pts:
+            y1, x1 = pt
+            y1 = int(y1 * length)
+            x1 = int(x1 * length)
+            y2 = np.clip(y1 + length, 0, h)
+            x2 = np.clip(x1 + length, 0, w)
+
+            img[y1: y2, x1: x2] = 128
+
+        return img
+
+

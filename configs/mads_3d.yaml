@@ -9,8 +9,9 @@ DATASET:
   FLIP: true
   ROT_FACTOR: 30
   SCALE_FACTOR: 0.25
+  OCCLUSION: HNS
 MODEL:
-  NAME: mads_3d_256_101_combined_aug
+  NAME: mads_3d_256_101_combined_aug_hns
   PRETRAINED: 'weights/mpii_256_101/latest.pth'
   IMAGE_SIZE:
   - 256

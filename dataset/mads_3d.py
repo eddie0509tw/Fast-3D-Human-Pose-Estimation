@@ -174,11 +174,10 @@ class MADS3DDataset(MADS2DDataset):
             (int(self.image_size[0]), int(self.image_size[1])),
             flags=cv2.INTER_LINEAR)
         
-        # CutOut augmentation
-        if random.random() <= 0.3 and self.image_set == 'train':
-            img_left = self.cutout(img_left)
-            img_right = self.cutout(img_right)
-
+        # occlusion augmentation
+        if random.random() <= 0.5:
+            img_left = self.occlusion(img_left)
+            img_right = self.occlusion(img_right)
         T = np.eye(4)
         T[:2, :3] = trans
         P_left = T @ P_left
