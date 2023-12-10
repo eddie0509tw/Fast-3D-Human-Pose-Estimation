@@ -169,10 +169,13 @@ def to_cpu(x):
 def plot_loss(losses, save_path, title):
     os.makedirs(save_path, exist_ok=True)
     plt.figure()
-    plt.plot(losses)
+    epochs = np.arange(len(losses))
+    plt.plot(epochs, np.array(losses))
     plt.xlabel("Epoch")
     plt.ylabel(title)
     plt.title(f"{title} vs Epoch")
+    save_name = f"{title}.png"
+    save_path = os.path.join(save_path, save_name)
     plt.savefig(save_path)
     plt.show()
     plt.close()

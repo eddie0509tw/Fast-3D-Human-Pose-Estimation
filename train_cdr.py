@@ -224,9 +224,9 @@ def run(config):
         save_folder = os.path.join(model_path, "latest.pth")
         torch.save(model.state_dict(), save_folder)
 
-    plot_loss(train_losses, "/plot", "Training Loss")
-    plot_loss(val_losses, "/plot", "Validation Loss")
-    plot_loss(val_errors, "/plot", "MPJPE")
+    plot_loss(train_losses, "./plot", "Training Loss")
+    plot_loss(val_losses, "./plot", "Validation Loss")
+    plot_loss(val_errors, "./plot", "MPJPE")
     logger.info("Training is done!")
 
 
