@@ -4,9 +4,11 @@ import argparse
 import cv2
 import numpy as np
 from easydict import EasyDict
+import torch
 
 from tools.load import LoadMADSData
 from tools.common import project_3d_to_2d
+from tools.augmentation import Cutout
 
 
 def draw_pose(img, pose_3d, calibs):
@@ -28,16 +30,18 @@ def visualize_pose(left_img, right_img, meta):
     pose_3d = np.array(meta['pose_3d'])
 
     # Draw the pose on the left image
-    img_left = draw_pose(left_img, pose_3d, meta['cam_left'])
-    img_right = draw_pose(right_img, pose_3d, meta['cam_right'])
+    left_img = draw_pose(left_img, pose_3d, meta['cam_left'])
+    right_img = draw_pose(right_img, pose_3d, meta['cam_right'])
 
     # Save the results
-    img_stereo = np.concatenate((img_left, img_right), axis=1)
-    cv2.imshow("img", img_stereo)
-    key = cv2.waitKey(0)
-    if key == ord('q'):
-        print("quit display")
-        exit(1)
+    img_stereo = np.concatenate((left_img, right_img), axis=1)
+    cv2.imwrite('example_image.png', img_stereo)
+    exit()
+    # cv2.imshow("img", img_stereo)
+    # key = cv2.waitKey(0)
+    # if key == ord('q'):
+    #     print("quit display")
+    #     exit(1)
 
 
 if __name__ == "__main__":

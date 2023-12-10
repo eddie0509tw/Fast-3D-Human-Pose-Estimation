@@ -10,12 +10,7 @@ import numpy as np
 from .mads import MADS2DDataset
 from .transforms import get_affine_transform
 from tools.common import get_projection_matrix
-
-
-def numpy2torch(x):
-    x = torch.from_numpy(x)
-    x = x.type(torch.float32)
-    return x
+from tools.utils import numpy2torch
 
 
 class MADS3DDataset(MADS2DDataset):
@@ -178,6 +173,11 @@ class MADS3DDataset(MADS2DDataset):
             trans,
             (int(self.image_size[0]), int(self.image_size[1])),
             flags=cv2.INTER_LINEAR)
+        
+        # CutOut augmentation
+        if random.random() <= 0.3 and self.image_set == 'train':
+            img_left = self.cutout(img_left)
+            img_right = self.cutout(img_right)
 
         T = np.eye(4)
         T[:2, :3] = trans

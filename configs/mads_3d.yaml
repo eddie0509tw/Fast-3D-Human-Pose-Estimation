@@ -10,7 +10,7 @@ DATASET:
   ROT_FACTOR: 30
   SCALE_FACTOR: 0.25
 MODEL:
-  NAME: mads_3d_256_101_combined
+  NAME: mads_3d_256_101_combined_aug
   PRETRAINED: 'weights/mpii_256_101/latest.pth'
   IMAGE_SIZE:
   - 256

@@ -58,7 +58,7 @@ def get_max_preds(batch_heatmaps):
     return preds, maxvals
 
 
-def project(meta):
+def project(meta, pose_3d):
     K_left = meta['cam_left']['intrinsics']
     R_left = meta['cam_left']['rotation']
     T_left = meta['cam_left']['translation']
@@ -67,7 +67,6 @@ def project(meta):
     R_right = meta['cam_right']['rotation']
     T_right = meta['cam_right']['translation']
 
-    pose_3d = np.array(meta['pose_3d'])
     pose_2d_left = project_3d_to_2d(pose_3d, K_left, R_left, T_left)
     pose_2d_right = project_3d_to_2d(pose_3d, K_right, R_right, T_right)
 
@@ -102,9 +101,9 @@ def plot_body(ax, points, color, label):
 def plot_pose_3d(pose_3d, pts3D):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.set_xlim3d(-600, 600)
-    ax.set_ylim3d(-1000, 200)
-    ax.set_zlim3d(0, 1500)
+    ax.set_xlim3d(-1000, 1000)
+    ax.set_ylim3d(-1500, 1500)
+    ax.set_zlim3d(0, 1700)
 
     rot = Rotation.from_euler('zyx', np.array([0, 0, 90]),
                               degrees=True).as_matrix()
@@ -136,9 +135,12 @@ def plot_pose_2d(gt_joints, pred_joints, imgs):
     def plot_joints(joints, img, color):
         for k in range(joints.shape[0]):
             joint = joints[k]
-            cv2.circle(img, (int(joint[0]), int(joint[1])),
-                       2, color, -1)
-
+            # Check if the joint has NaN values
+            if not np.isnan(joint[0]) and not np.isnan(joint[1]):      
+                # Plot the joint as a circle
+                cv2.circle(img, (int(joint[0]), int(joint[1])),
+                        2, color, -1)
+                
     for gt, pred, img in zip(gt_joints, pred_joints, imgs):
         plot_joints(gt, img, (255, 0, 0))
         plot_joints(pred, img, (0, 255, 0))

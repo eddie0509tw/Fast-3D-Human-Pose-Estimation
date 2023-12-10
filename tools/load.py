@@ -10,6 +10,7 @@ from dataset.mpii import MPIIDataset
 from dataset.mads import MADS2DDataset
 from dataset.mads_3d import MADS3DDataset
 from dataset.transforms import get_affine_transform
+from tools.augmentation import Cutout
 
 
 class LoadMADSData:
@@ -42,7 +43,6 @@ class LoadMADSData:
         origin_size = min(h, w)
 
         trans = get_affine_transform(c, 1, 0, origin_size, self.image_size)
-
         # crop and resize images to match the model input size
         left_img = cv2.warpAffine(
             left_img,
@@ -65,6 +65,9 @@ class LoadMADSData:
 
         meta['cam_left']['intrinsics'] = K_left
         meta['cam_right']['intrinsics'] = K_right
+        # cutout = Cutout(4, 40)
+        # left_img = cutout(left_img)
+        # right_img = cutout(right_img)
 
         return left_img, right_img, meta
 

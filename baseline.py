@@ -54,6 +54,7 @@ class BaseLine:
         return preds
 
     def estimate(self, img_left, img_right, meta):
+        # TODO: need to adjust
         pose_2d_left, pose_2d_right = project(meta)
 
         preds_left = self.inference(img_left.copy()).squeeze(0)

@@ -1,6 +1,6 @@
 import numpy as np
 
-from .utils import get_max_preds
+from tools.utils import get_max_preds
 
 
 def calc_dists(preds, target, normalize):
@@ -60,3 +60,38 @@ def accuracy(output, target):
     if cnt != 0:
         acc[0] = avg_acc
     return acc, pred
+
+
+def calc_mpjpe(
+                pred_2ds,
+                pred_3ds,
+                gt_3d,
+                gt_2d_left,
+                gt_2d_right,
+                target_weight=None):  
+    pred_2d_left = pred_2ds[0]
+    pred_2d_right = pred_2ds[1]
+    if len(pred_3ds.shape) < 3:
+        pred_2d_left = pred_2d_left.reshape(1, -1, 2)
+        pred_2d_right = pred_2d_right.reshape(1, -1, 2)
+        pred_3ds = pred_3ds.reshape(1, -1, 3)
+        gt_3d = gt_3d.reshape(1, -1, 3)
+        gt_2d_left = gt_2d_left.reshape(1, -1, 2)
+        gt_2d_right = gt_2d_right.reshape(1, -1, 2)
+
+    if target_weight is not None:
+        pred_2d_left = pred_2d_left * target_weight
+        pred_2d_right = pred_2d_right * target_weight
+        pred_3ds = pred_3ds * target_weight
+        gt_3d = gt_3d * target_weight
+        gt_2d_left = gt_2d_left * target_weight
+        gt_2d_right = gt_2d_right * target_weight 
+
+    error_2d_left = np.linalg.norm(pred_2d_left - gt_2d_left, axis=2).mean()
+    error_2d_right = np.linalg.norm(pred_2d_right - gt_2d_right, axis=2).mean()
+
+    error_2d = (error_2d_left + error_2d_right) / 2
+
+    error_3d = np.linalg.norm(pred_3ds - gt_3d, axis=2).mean()
+
+    return error_2d, error_3d
