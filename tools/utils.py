@@ -179,3 +179,29 @@ def plot_loss(losses, save_path, title):
     plt.savefig(save_path)
     plt.show()
     plt.close()
+
+
+def check_occlusion(joints, mask):
+    h, w = mask.shape
+    mask = mask.astype(np.int32)
+    joints = joints.astype(np.int32)
+    # pos_valid = np.logical_and.reduce(
+    #     (joints[:, 0] >= 0, joints[:, 0] < w,
+    #      joints[:, 1] >= 0, joints[:, 1] < h))
+    # joints[~pos_valid] = -1
+    zero_index = np.where(mask[joints[:, 1], joints[:, 0]] == 0)
+    joints_mask = np.ones_like(joints)
+    joints_mask[zero_index] = 0
+    #joints_mask[~pos_valid] = 0
+    joints_mask = np.logical_and.reduce(joints_mask, axis=1, keepdims=True)
+    return joints_mask
+
+
+def check_boundary(pose_2d, img_size):
+    h, w = img_size
+    pos_valid = np.logical_and.reduce(
+        (pose_2d[:, 0] >= 0, pose_2d[:, 0] < w,
+            pose_2d[:, 1] >= 0, pose_2d[:, 1] < h))
+    pose_2d[~pos_valid] = -1
+
+    return pose_2d, pos_valid

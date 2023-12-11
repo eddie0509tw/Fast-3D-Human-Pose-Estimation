@@ -12,13 +12,15 @@ class Cutout(object):
     def __init__(self, n_holes, length):
         self.n_holes = n_holes
         self.length = length
+        self.train_with_masking = True
 
     def __call__(self, img):
         """
         Args:
-            img (Tensor): Numpy array of size (H, W, C).
+            img : Numpy array of size (H, W, C).
         Returns:
-            Tensor: Image with n_holes of dimension length x length cut out of it.
+            Numpy array: The numpy array of img with n_holes of dimension
+                        and length x length cut out of it.
         """
         h, w = img.shape[:2]
 
@@ -40,11 +42,15 @@ class Cutout(object):
         mask = mask.astype(np.bool_)
         img[~mask] = 128
 
-        return img
+        if self.train_with_masking:
+            return img, mask[..., 0]
+        else:
+
+            return img, None
 
 
 class HideNSeek(object):
-    """Randomly mask out patches from an image.
+    """Randomly mask out patches from an image in a regular grid fashion.
 
     Args:
         n_holes (int): Number of patches to cut out of each image.
@@ -53,6 +59,7 @@ class HideNSeek(object):
     def __init__(self, n_patches, p_hide=0.4):
         self.n_patches = n_patches
         self.p_hide = p_hide
+        self.train_with_masking = True
 
     def __call__(self, img):
         """
@@ -76,6 +83,7 @@ class HideNSeek(object):
             np.arange(len(grid_pts)), size=int(n_choices), replace=False)
   
         selected_pts = grid_pts[random_indices]
+        mask = np.ones((h, w), np.float32)
 
         for pt in selected_pts:
             y1, x1 = pt
@@ -84,8 +92,16 @@ class HideNSeek(object):
             y2 = np.clip(y1 + length, 0, h)
             x2 = np.clip(x1 + length, 0, w)
 
-            img[y1: y2, x1: x2] = 128
+            mask[y1: y2, x1: x2] = 0.
+        
+        mask = np.tile(mask[:, :, np.newaxis], (1, 1, img.shape[2]))
+        mask = mask.astype(np.bool_)
+        img[~mask] = 128
 
-        return img
+        if self.train_with_masking:
+            return img, mask[..., 0]
+        else:
+
+            return img, None
 
 
