@@ -14,6 +14,7 @@ from tools.load import LoadMADSData
 from tools.common import get_projection_matrix, triangulation
 from tools.utils import get_max_preds, project, plot_pose_2d, plot_pose_3d
 from models.poseresnet import PoseResNet
+from models.metrics import calc_mpjpe
 
 matplotlib.use("Agg")
 
@@ -26,7 +27,7 @@ class BaseLine:
         self.model = model.to(device)
 
         # Load the model weights
-        weight_path = os.path.join("weights", config.MODEL.NAME, "best.pth")
+        weight_path = os.path.join("weights", config.MODEL.NAME, "latest.pth")
         if os.path.exists(weight_path):
             model.load_state_dict(torch.load(weight_path, map_location=device))
         else:
@@ -55,7 +56,15 @@ class BaseLine:
 
     def estimate(self, img_left, img_right, meta):
         # TODO: need to adjust
-        pose_2d_left, pose_2d_right = project(meta)
+        pose_3d = np.array(meta['pose_3d'])
+        mask = np.isnan(pose_3d)
+        pose_3d[mask] = 0
+        # set the visibility of joints that have NaN values to 0
+        joints_vis = np.ones_like(pose_3d)
+        joints_vis[mask] = 0
+        joints_vis = np.logical_and.reduce(joints_vis, axis=1,
+                                           keepdims=True)
+        pose_2d_left, pose_2d_right = project(meta, pose_3d)
 
         preds_left = self.inference(img_left.copy()).squeeze(0)
         preds_right = self.inference(img_right.copy()).squeeze(0)
@@ -72,8 +81,15 @@ class BaseLine:
                                    meta['cam_right']['rotation'],
                                    meta['cam_right']['translation'])
 
-        pts3D = triangulation(PL, PR, preds_left, preds_right)
-        img_3d = plot_pose_3d(np.array(meta['pose_3d']), pts3D)
+        pred_3ds = triangulation(PL, PR, preds_left, preds_right)
+        img_3d = plot_pose_3d(pose_3d, pred_3ds)
+        
+        pred_2ds = [preds_left, preds_right]
+
+        err = calc_mpjpe(
+            pred_2ds, pred_3ds, pose_3d,
+            pose_2d_left[:, :2], pose_2d_right[:, :2],
+            joints_vis)
 
         ratio = img_2d.shape[1] / img_3d.shape[1]
         img_3d = cv2.resize(
@@ -82,7 +98,7 @@ class BaseLine:
         )
 
         img = np.vstack((img_2d, img_3d))
-        return img
+        return img, err
 
 
 if __name__ == "__main__":
@@ -95,19 +111,24 @@ if __name__ == "__main__":
     with open(args.config_path, 'r') as f:
         config = EasyDict(yaml.safe_load(f))
 
+    movement = "Taichi"
     MADS_loader = LoadMADSData("data/MADS_extract/valid",
-                               config.MODEL.IMAGE_SIZE)
+                               config.MODEL.IMAGE_SIZE, movement)
 
     method = BaseLine(config)
 
     images = []
+    error = (0, 0)
     for img_left, img_right, meta in tqdm.tqdm(MADS_loader,
                                                total=len(MADS_loader)):
-        pose_img = method.estimate(img_left, img_right, meta)
+        pose_img, err = method.estimate(img_left, img_right, meta)
+        error = (error[0] + err[0], error[1] + err[1])
 
         im = pil.fromarray(pose_img)
         images.append(im)
 
-    images[0].save('pose.gif',
+    print("MPJPE2D: ", error[0] / MADS_loader.__len__())
+    print("MPJPE3D: ", error[1] / MADS_loader.__len__())
+    images[0].save(f'{movement}.gif',
                    save_all=True, append_images=images[1:],
                    optimize=False, duration=40, loop=0)

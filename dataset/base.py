@@ -36,11 +36,13 @@ class BaseDataset(Dataset):
         ])
 
         self.db = self._get_db()
-
+        # The choice of occlusion augmentation
         if cfg.DATASET.OCCLUSION == "CUTOUT":
-            self.occlusion = Cutout(4, 40)
+            self.occlusion = Cutout(6, 40)
         elif cfg.DATASET.OCCLUSION == "HNS":
             self.occlusion = HideNSeek(4)
+        else:
+            self.occlusion = None
 
     def __len__(self,):
         return len(self.db)

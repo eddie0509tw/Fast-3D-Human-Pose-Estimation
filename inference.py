@@ -120,7 +120,7 @@ if __name__ == "__main__":
 
     with open(args.config_path, 'r') as f:
         config = EasyDict(yaml.safe_load(f))
-    movement = "Kata"
+    movement = "Taichi"
     MADS_loader = LoadMADSData("data/MADS_extract/valid",
                                config.MODEL.IMAGE_SIZE, movement)
 
@@ -136,8 +136,8 @@ if __name__ == "__main__":
         im = pil.fromarray(pose_img)
         images.append(im)
 
-    print("MPJPE2D: ", error[0] / len(MADS_loader))
-    print("MPJPE3D: ", error[1] / len(MADS_loader))
+    print("MPJPE2D: ", error[0] / MADS_loader.__len__())
+    print("MPJPE3D: ", error[1] / MADS_loader.__len__())
     images[0].save(f'{movement}.gif',
                    save_all=True, append_images=images[1:],
                    optimize=False, duration=40, loop=0)

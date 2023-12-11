@@ -215,9 +215,10 @@ class MADS3DDataset(MADS2DDataset):
         # occlusion augmentation
         mask_l = None
         mask_r = None
-        if random.random() <= 0.3 and self.image_set == 'train':
-            img_left, mask_l = self.occlusion(img_left)
-            img_right, mask_r = self.occlusion(img_right)
+        if self.occlusion is not None:
+            if random.random() <= 0.3 and self.image_set == 'train':
+                img_left, mask_l = self.occlusion(img_left)
+                img_right, mask_r = self.occlusion(img_right)
 
         T = np.eye(4)
         T[:2, :3] = trans
