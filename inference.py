@@ -120,7 +120,7 @@ if __name__ == "__main__":
 
     with open(args.config_path, 'r') as f:
         config = EasyDict(yaml.safe_load(f))
-    movement = "Taichi"
+    movement = "Sports"
     MADS_loader = LoadMADSData("data/MADS_extract/valid",
                                config.MODEL.IMAGE_SIZE, movement)
 
