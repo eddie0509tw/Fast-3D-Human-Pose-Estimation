@@ -5,3 +5,11 @@ __pycache__/
 data/
 output/
 *.jpg
+weights/
+test*
+lightning_logs/
+checkpoints/
+outputs/
+*.gif
+*.png
+*.txt

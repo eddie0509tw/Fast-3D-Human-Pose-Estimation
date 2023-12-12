@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from easydict import EasyDict
 
 from tools.load import load_data
-from simplebaseline.utils import get_max_preds
+from tools.utils import get_max_preds
 
 
 if __name__ == "__main__":
@@ -35,7 +35,6 @@ if __name__ == "__main__":
                 joint = joints[j].numpy()
 
                 pred = preds[j] * 4
-                print(pred, joint)
 
                 img = img.copy()
 

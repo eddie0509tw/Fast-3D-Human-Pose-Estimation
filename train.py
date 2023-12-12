@@ -8,10 +8,10 @@ from torch.optim.lr_scheduler import MultiStepLR
 from easydict import EasyDict
 
 from tools.load import load_data
-from simplebaseline.utils import setup_logger
-from simplebaseline.poseresnet import PoseResNet
-from simplebaseline.loss import JointsMSELoss
-from simplebaseline.metrics import accuracy
+from tools.utils import setup_logger
+from models.poseresnet import PoseResNet
+from models.loss import JointsMSELoss
+from models.metrics import accuracy
 
 
 def run(config):
@@ -58,7 +58,10 @@ def run(config):
     )
 
     best_acc = 0
-
+    train_losses = []
+    val_losses = []
+    train_acc = []
+    val_acc = []
     for epoch in range(config.TRAIN.EPOCH):
         train_loss, val_loss = 0, 0
         train_class_acc, val_class_acc = 0, 0
@@ -118,7 +121,13 @@ def run(config):
                 acc, _ = accuracy(out.detach().cpu().numpy(),
                                   target.detach().cpu().numpy())
                 val_class_acc += acc[0]
-
+        # loss summarizing
+        train_loss /= train_loader.__len__()
+        val_loss /= valid_loader.__len__()
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
+        train_acc.append(train_class_acc / train_loader.__len__())
+        val_acc.append(val_class_acc / valid_loader.__len__())
         # --------------------------
         # Logging Stage
         # --------------------------
@@ -141,7 +150,10 @@ def run(config):
         # save latest model
         save_folder = os.path.join(model_path, "latest.pth")
         torch.save(model.state_dict(), save_folder)
-
+    plot_loss(train_losses, "./plot", "Training Loss")
+    plot_loss(val_losses, "./plot", "Validation Loss")
+    plot_loss(train_acc, "./plot", "Training Accuracy")
+    plot_loss(val_acc, "./plot", "Validation Accuracy")
     logger.info("Training is done!")
 
 

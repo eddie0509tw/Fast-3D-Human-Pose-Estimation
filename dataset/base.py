@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset
+from tools.augmentation import Cutout, HideNSeek
 
 from .transforms import (get_affine_transform, affine_transform,
                          fliplr_joints)
@@ -35,6 +36,13 @@ class BaseDataset(Dataset):
         ])
 
         self.db = self._get_db()
+        # The choice of occlusion augmentation
+        if cfg.DATASET.OCCLUSION == "CUTOUT":
+            self.occlusion = Cutout(6, 40)
+        elif cfg.DATASET.OCCLUSION == "HNS":
+            self.occlusion = HideNSeek(4)
+        else:
+            self.occlusion = None
 
     def __len__(self,):
         return len(self.db)
