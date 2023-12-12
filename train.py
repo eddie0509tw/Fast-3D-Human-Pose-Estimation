@@ -10,7 +10,7 @@ from easydict import EasyDict
 from tools.load import load_data
 from tools.utils import setup_logger
 from models.poseresnet import PoseResNet
-from models.loss import JointsMSELoss
+from models.loss import JointsMSELoss, MPJPELoss, JointsMSESmoothLoss
 from models.metrics import accuracy
 
 
@@ -50,7 +50,14 @@ def run(config):
         model.init_weights(config.MODEL.PRETRAINED)
     model = model.to(device)
 
-    criterion = JointsMSELoss(config.LOSS.USE_TARGET_WEIGHT)
+    if config.LOSS.TYPE == "MPJPE":
+        criterion = MPJPELoss(config.LOSS.USE_TARGET_WEIGHT)
+    elif config.LOSS.TYPE == "JointsMSESmooth":
+        criterion = JointsMSESmoothLoss(config.LOSS.USE_TARGET_WEIGHT)
+    elif config.LOSS.TYPE == "JointsMSE":
+        criterion = JointsMSELoss(config.LOSS.USE_TARGET_WEIGHT)
+    else:
+        raise NotImplementedError
 
     optimizer = torch.optim.Adam(model.parameters(), config.TRAIN.LR)
     scheduler = MultiStepLR(

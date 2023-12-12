@@ -10,7 +10,7 @@ from easydict import EasyDict
 from tools.load import load_data
 from tools.utils import setup_logger, to_cpu, plot_loss
 from models.cdrnet import CDRNet
-from models.loss import JointsMSESmoothLoss
+from models.loss import MPJPELoss, JointsMSESmoothLoss, JointsMSELoss
 from models.metrics import calc_mpjpe
 
 
@@ -49,7 +49,14 @@ def run(config):
         model.init_weights(config.MODEL.PRETRAINED)
     model = model.to(device)
 
-    criterion = JointsMSESmoothLoss(config.LOSS.USE_TARGET_WEIGHT)
+    if config.LOSS.TYPE == "MPJPE":
+        criterion = MPJPELoss(config.LOSS.USE_TARGET_WEIGHT)
+    elif config.LOSS.TYPE == "JointsMSESmooth":
+        criterion = JointsMSESmoothLoss(config.LOSS.USE_TARGET_WEIGHT)
+    elif config.LOSS.TYPE == "JointsMSE":
+        criterion = JointsMSELoss(config.LOSS.USE_TARGET_WEIGHT)
+    else:
+        raise NotImplementedError
 
     optimizer = torch.optim.Adam(model.parameters(), config.TRAIN.LR)
     scheduler = MultiStepLR(

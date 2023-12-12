@@ -35,3 +35,4 @@ TEST:
   BATCH_SIZE: 32
 LOSS:
   USE_TARGET_WEIGHT: true
+  TYPE: JointsMSESmooth

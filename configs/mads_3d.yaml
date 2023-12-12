@@ -1,6 +1,6 @@
 GPUS: '0'
 OUTPUT_DIR: 'output'
-WORKERS: 8
+WORKERS: 1
 DATASET:
   TYPE: MADS_3d
   ROOT: 'data/MADS_extract'
@@ -9,9 +9,9 @@ DATASET:
   FLIP: true
   ROT_FACTOR: 30
   SCALE_FACTOR: 0.25
-  OCCLUSION: HNS
+  OCCLUSION: 
 MODEL:
-  NAME: mads_3d_256_101_combined_aug_hns
+  NAME: mads_3d_256_101_combined_mpjpe_
   PRETRAINED: 'weights/mpii_256_101/latest.pth'
   IMAGE_SIZE:
   - 256
@@ -37,3 +37,4 @@ TEST:
   BATCH_SIZE: 32
 LOSS:
   USE_TARGET_WEIGHT: true
+  TYPE: MPJPE
