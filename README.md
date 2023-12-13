@@ -26,11 +26,13 @@ Instuction: Todo
 ### Results 
 
 Best:
-<img src="https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/blob/main/GIF/HipHop_best.gif" alt="HipHop" />
-<img src="https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/blob/main/GIF/Sports_best.gif" alt="Sports" />
+
+<img src="https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/blob/main/GIF/HipHop_best.gif" alt="HipHop_best" />
+<img src="https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/blob/main/GIF/Sports_best.gif" alt="Sports_best" />
 Baseline:
-<img src="https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/blob/main/GIF/HipHop_baseline.gif" alt="HipHop" />
-<img src="https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/blob/main/GIF/Sports_baseline" alt="Sports" />
+
+<img src="https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/blob/main/GIF/HipHop_baseline.gif" alt="HipHop_base" />
+<img src="https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/blob/main/GIF/Sports_baseline.gif" alt="Sports_base" />
 
 ### References
 
