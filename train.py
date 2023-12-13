@@ -8,7 +8,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from easydict import EasyDict
 
 from tools.load import load_data
-from tools.utils import setup_logger
+from tools.utils import setup_logger, plot_loss
 from models.poseresnet import PoseResNet
 from models.loss import JointsMSELoss, MPJPELoss, JointsMSESmoothLoss
 from models.metrics import accuracy

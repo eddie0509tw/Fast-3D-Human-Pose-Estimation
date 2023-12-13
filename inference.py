@@ -120,7 +120,7 @@ if __name__ == "__main__":
 
     with open(args.config_path, 'r') as f:
         config = EasyDict(yaml.safe_load(f))
-    movement = "Sports"
+    movement = "HipHop"
     MADS_loader = LoadMADSData("data/MADS_extract/valid",
                                config.MODEL.IMAGE_SIZE, movement)
 
@@ -128,6 +128,7 @@ if __name__ == "__main__":
 
     images = []
     error = (0, 0)
+    save_frames = 100 + 1
     for img_left, img_right, meta in tqdm.tqdm(MADS_loader,
                                                total=len(MADS_loader)):
         pose_img, err = method.estimate(img_left, img_right, meta)
@@ -135,9 +136,11 @@ if __name__ == "__main__":
 
         im = pil.fromarray(pose_img)
         images.append(im)
+        if images.__len__() > save_frames:
+            break
 
     print("MPJPE2D: ", error[0] / MADS_loader.__len__())
     print("MPJPE3D: ", error[1] / MADS_loader.__len__())
     images[0].save(f'{movement}.gif',
-                   save_all=True, append_images=images[1:],
+                   save_all=True, append_images=images[:],
                    optimize=False, duration=40, loop=0)

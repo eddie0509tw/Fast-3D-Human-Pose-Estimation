@@ -11,7 +11,7 @@ DATASET:
   SCALE_FACTOR: 0.25
   OCCLUSION: None
 MODEL:
-  NAME: mads_256_101
+  NAME: mads_256_101_2d
   PRETRAINED: 'weights/mpii_256_101/latest.pth'
   IMAGE_SIZE:
   - 256
