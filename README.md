@@ -26,8 +26,8 @@ Instuction: Todo
 
 ### Results 
 Best:
-<img src="https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/tree/main/GIF/HipHip_best.gif" alt="HipHop" />
-<img src="https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/tree/main/GIF/Sports_best.gif" alt="HipHop" />
+<img src="https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/blob/main/GIF/HipHop_best.gif" alt="HipHop" />
+<img src="https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/blob/main/GIF/Sports_best.gif" alt="Sports" />
 
 ### References
 
