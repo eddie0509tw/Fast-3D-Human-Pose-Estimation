@@ -8,7 +8,7 @@ This is a pytorch implementation of method based on [Lightweight Multi-View 3D P
 -  We find that the random masking data augmentation strategies can ease the self-occlusion and improve the MPJPE to some extent.
 - We experiment with different tricks (Different Loss Function, Gradient Clip) to further increase both the accuracy and stabilization for the training process.
 
-#### Dataset
+### Dataset
 
 We pretrained our model using the [MPII](http://human-pose.mpi-inf.mpg.de/) Dataset which includes around 25K images containing over 40K people with annotated body joints. The images were systematically collected using an established taxonomy of every day human activities. Then we do fine-tuning on the stereo data from [MADS](http://visal.cs.cityu.edu.hk/research/mads/#download) Dataset which consists of martial arts actions (Tai-chi and Karate), dancing actions (hip-hop and jazz), and sports actions (basketball, volleyball, football, rugby, tennis and badminton). Two martial art masters, two dancers and an athlete performed these
 actions while being recorded with either multiple cameras or a stereo depth camera.
