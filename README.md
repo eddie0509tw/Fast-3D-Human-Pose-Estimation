@@ -5,7 +5,7 @@ This is a pytorch implementation of method based on [Lightweight Multi-View 3D P
 
 ### Contribution
 - We implement and extent the method [Lightweight Multi-View 3D Pose Estimation through Camera-Disentangled Representation](https://arxiv.org/pdf/2004.02186.pdf) from scratch with slightly modification and apply it to the stereo reconstruction tasks.
--  We find that the random masking data augmentation strategies can ease the self-occlusion and improve the MPJPE to some extent.
+-  We find that the random masking data augmentation strategies can more or less ease the self-occlusion and improve the MPJPE to some extent.
 - We experiment with different tricks (Different Loss Function, Gradient Clip) to further increase both the accuracy and stabilization for the training process.
 
 ### Dataset
