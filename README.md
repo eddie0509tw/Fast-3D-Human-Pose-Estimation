@@ -13,7 +13,7 @@ Instuction: Todo
 
 #### Dataset
 
-We pretrained our model using the MPII[http://human-pose.mpi-inf.mpg.de/] Dataset which includes around 25K images containing over 40K people with annotated body joints. The images were systematically collected using an established taxonomy of every day human activities. Then we do fine-tuning on the stereo data from MADS[http://visal.cs.cityu.edu.hk/research/mads/#download] Dataset which consists of martial arts actions (Tai-chi and Karate), dancing actions (hip-hop and jazz), and sports actions (basketball, volleyball, football, rugby, tennis and badminton). Two martial art masters, two dancers and an athlete performed these
+We pretrained our model using the MPII(http://human-pose.mpi-inf.mpg.de/) Dataset which includes around 25K images containing over 40K people with annotated body joints. The images were systematically collected using an established taxonomy of every day human activities. Then we do fine-tuning on the stereo data from MADS(http://visal.cs.cityu.edu.hk/research/mads/#download) Dataset which consists of martial arts actions (Tai-chi and Karate), dancing actions (hip-hop and jazz), and sports actions (basketball, volleyball, football, rugby, tennis and badminton). Two martial art masters, two dancers and an athlete performed these
 actions while being recorded with either multiple cameras or a stereo depth camera.
 
 
