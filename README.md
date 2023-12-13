@@ -9,17 +9,16 @@ naive approach with this method based on [Lightweight Multi-View 3D Pose Estimat
 (2) We show that learning the disentangled representation using FTL and fusion layer can improve the self-occlusion
 as well as the Mean Per Joint Position Error (MPJPE).
 (3) We show that our random masking data augmentation strategies can ease the self-occlusion to some extent.
-(4) We experiment with different tricks (Different Loss Function, Gradient Clip) to further increase both the accuracy and stabilization for the training process
-### Train
-
-Instuction: Todo
+(4) We experiment with different tricks (Different Loss Function, Gradient Clip) to further increase both the accuracy and stabilization for the training process.
 
 #### Dataset
 
 We pretrained our model using the MPII(http://human-pose.mpi-inf.mpg.de/) Dataset which includes around 25K images containing over 40K people with annotated body joints. The images were systematically collected using an established taxonomy of every day human activities. Then we do fine-tuning on the stereo data from MADS(http://visal.cs.cityu.edu.hk/research/mads/#download) Dataset which consists of martial arts actions (Tai-chi and Karate), dancing actions (hip-hop and jazz), and sports actions (basketball, volleyball, football, rugby, tennis and badminton). Two martial art masters, two dancers and an athlete performed these
 actions while being recorded with either multiple cameras or a stereo depth camera.
 
+### Train
 
+Instuction: Todo
 
 ### Test
  
@@ -27,8 +26,8 @@ Instuction: Todo
 
 ### Results 
 Best:
-![](https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/tree/main/GIF/HipHip.gif)
-![](https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/tree/main/GIF/Sports.gif)
+<img src="https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/tree/main/GIF/HipHip_best.gif" alt="HipHop" />
+<img src="https://github.com/eddie0509tw/Fast-3D-Human-Pose-Estimation/tree/main/GIF/Sports_best.gif" alt="HipHop" />
 
 ### References
 
