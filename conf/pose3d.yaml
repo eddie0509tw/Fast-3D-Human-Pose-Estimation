@@ -1,0 +1,36 @@
+defaults:
+  - _self_
+  - dataset: mads_3d
+  - model: cdrnet
+  - hydra: default.yaml
+
+path:
+  weight_dir: 'weights'
+  output_dir: 'result'
+  log_dir: 'logs'
+
+train:
+  img_size:
+  - 256
+  - 256
+  batch_size: 32
+  warmup_epoch: 20
+  epoch: 60
+  lr: 0.001
+  lr_step:
+  - 20
+  - 50
+  lr_factor: 0.1
+  clip_grad: 1000
+
+target:
+  sigma: None
+  heatmap_size:
+  - None
+  - None
+
+load:
+  num_workers: 8
+
+loss:
+  use_target_weight: true

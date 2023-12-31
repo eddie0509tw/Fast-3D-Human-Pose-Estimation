@@ -1,0 +1,3 @@
+name: cdrnet
+num_layers: 101
+pretrained: 'weights/poseresnet_101_256_mads_2d/best.ckpt'

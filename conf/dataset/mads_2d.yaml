@@ -1,0 +1,10 @@
+name: mads_2d
+root: 'data/MADS_extract'
+train_set: train
+test_set: valid
+num_joints: 19
+
+augment:
+  flip: true
+  rot_factor: 30
+  scale_factor: 0.25

@@ -1,0 +1,34 @@
+defaults:
+  - _self_
+  - dataset: mads_2d
+  - model: poseresnet
+  - hydra: default.yaml
+
+path:
+  weight_dir: 'weights'
+  output_dir: 'result'
+  log_dir: 'logs'
+
+train:
+  img_size:
+  - 256
+  - 256
+  batch_size: 32
+  epoch: 100
+  lr: 0.001
+  lr_step:
+  - 60
+  - 80
+  lr_factor: 0.1
+
+target:
+  sigma: 3
+  heatmap_size:
+  - 64
+  - 64
+
+load:
+  num_workers: 8
+
+loss:
+  use_target_weight: true

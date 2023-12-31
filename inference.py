@@ -1,36 +1,42 @@
 import cv2
 import os
-import yaml
 import argparse
 import torch
 import tqdm
+import glob
 import numpy as np
 import torchvision.transforms as transforms
 import matplotlib
-import PIL.Image as pil
-from easydict import EasyDict
+import subprocess
 
 from tools.load import LoadMADSData
 from tools.common import get_projection_matrix
-from tools.utils import project, plot_pose_2d, plot_pose_3d, to_cpu, \
-                    numpy2torch
+from tools.utils import (project, plot_pose_2d, plot_pose_3d, to_cpu,
+                         numpy2torch, plot_error)
 from models.cdrnet import CDRNet
-from models.metrics import calc_mpjpe
+from models.metrics import mpjpe
 
 matplotlib.use("Agg")
 
 
 class CDRNetInferencer:
-    def __init__(self, config):
+    def __init__(self, num_layers, num_joints, weight_path):
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-        model = CDRNet(config)
+        model = CDRNet(num_layers, num_joints)
         self.model = model.to(device)
 
         # Load the model weights
-        weight_path = os.path.join("weights", config.MODEL.NAME, "best.pth")
         if os.path.exists(weight_path):
-            model.load_state_dict(torch.load(weight_path, map_location=device))
+            checkpoint = torch.load(weight_path, map_location=device)
+            model_weights = checkpoint["state_dict"]
+
+            # update keys by dropping `model.`
+            for key in list(model_weights):
+                weight = model_weights.pop(key)
+                model_weights[key.replace("model.", "")] = weight
+
+            model.load_state_dict(model_weights)
         else:
             assert False, "Model is not exist in {}".format(weight_path)
 
@@ -68,16 +74,7 @@ class CDRNetInferencer:
         return pred_2ds, pred_3ds
 
     def estimate(self, img_left, img_right, meta):
-        pose_3d = np.array(meta['pose_3d'])
-        mask = np.isnan(pose_3d)
-        pose_3d[mask] = 0
-
-        # set the visibility of joints that have NaN values to 0
-        joints_vis = np.ones_like(pose_3d)
-        joints_vis[mask] = 0
-        joints_vis = np.logical_and.reduce(joints_vis, axis=1,
-                                           keepdims=True)
-        pose_2d_left, pose_2d_right = project(meta, pose_3d)
+        pose_2d_left, pose_2d_right = project(meta)
 
         PL = get_projection_matrix(meta['cam_left']['intrinsics'],
                                    meta['cam_left']['rotation'],
@@ -86,61 +83,83 @@ class CDRNetInferencer:
                                    meta['cam_right']['rotation'],
                                    meta['cam_right']['translation'])
 
+        target_3d = meta['pose_3d']
+        visibility = meta['visibility']
+
         pred_2ds, pred_3ds = self.inference(img_left, img_right, PL, PR)
 
         img_2d = plot_pose_2d((pose_2d_left, pose_2d_right),
                               (pred_2ds[0], pred_2ds[1]),
-                              (img_left, img_right))
+                              (img_left, img_right),
+                              visibility)
         img_2d = cv2.cvtColor(img_2d, cv2.COLOR_BGR2RGB)
 
-        img_3d = plot_pose_3d(pose_3d, pred_3ds)
+        img_3d = plot_pose_3d(target_3d, pred_3ds, visibility)
 
-        err = calc_mpjpe(
-                    pred_2ds, pred_3ds, pose_3d,
-                    pose_2d_left[:, :2], pose_2d_right[:, :2],
-                    joints_vis)
-        
-        ratio = img_2d.shape[1] / img_3d.shape[1]
-        img_3d = cv2.resize(
-            img_3d,
-            (int(img_3d.shape[1] * ratio), int(img_3d.shape[0] * ratio))
-        )
-        img = np.vstack((img_2d, img_3d))
-        cv2.imwrite("test.jpg", img)
+        error = mpjpe(pred_3ds, target_3d, visibility)
 
-        return img, err
+        return img_2d, img_3d, error
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config_path", type=str,
-                        default="configs/mads_3d.yaml",
-                        help="Path to the config file")
+    parser.add_argument("--image_height", type=int, default=256,
+                        help="height of the input image")
+    parser.add_argument("--image_width", type=int, default=256,
+                        help="width of the input image")
+    parser.add_argument("--num_layers", type=int, default=101,
+                        help="Number of layers of the model, i.e. ResNet101")
+    parser.add_argument("--num_joints", type=int, default=19,
+                        help="Number of joints of the human body")
+    parser.add_argument("--weight_path", type=str,
+                        default="weights/cdrnet_101_256_mads_3d/last-v4.ckpt",
+                        help="Path to the model weights")
+    parser.add_argument("--movement", type=str, default="HipHop",
+                        help="Name of the movement to be evaluated")
+    parser.add_argument("--output_dir", type=str, default="results",
+                        help="Path to the output directory")
     args = parser.parse_args()
 
-    with open(args.config_path, 'r') as f:
-        config = EasyDict(yaml.safe_load(f))
-    movement = "HipHop"
+    output_dir = args.output_dir
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    assert args.image_height == args.image_width, \
+        "image_height and image_width must be the same"
+
+    image_size = [args.image_height, args.image_width]
     MADS_loader = LoadMADSData("data/MADS_extract/valid",
-                               config.MODEL.IMAGE_SIZE, movement)
+                               image_size, args.movement)
 
-    method = CDRNetInferencer(config)
+    method = CDRNetInferencer(args.num_layers,
+                              args.num_joints,
+                              args.weight_path)
 
-    images = []
-    error = (0, 0)
-    save_frames = 100 + 1
-    for img_left, img_right, meta in tqdm.tqdm(MADS_loader,
-                                               total=len(MADS_loader)):
-        pose_img, err = method.estimate(img_left, img_right, meta)
-        error = (error[0] + err[0], error[1] + err[1])
+    errors = []
+    for idx, (img_left, img_right, meta) in enumerate(
+            tqdm.tqdm(MADS_loader, total=len(MADS_loader))):
+        pose_img_2d, pose_img_3d, error = \
+            method.estimate(img_left, img_right, meta)
 
-        im = pil.fromarray(pose_img)
-        images.append(im)
-        if images.__len__() > save_frames:
-            break
+        errors.append(error)
+        error_plot = plot_error(errors, len(MADS_loader))
 
-    print("MPJPE2D: ", error[0] / MADS_loader.__len__())
-    print("MPJPE3D: ", error[1] / MADS_loader.__len__())
-    images[0].save(f'{movement}.gif',
-                   save_all=True, append_images=images[:],
-                   optimize=False, duration=40, loop=0)
+        pose_img = np.hstack((np.vstack((pose_img_2d, error_plot)),
+                              pose_img_3d))
+        pose_img = cv2.cvtColor(pose_img, cv2.COLOR_RGB2BGR)
+        cv2.imshow("pose", pose_img)
+        cv2.waitKey(10)
+        cv2.imwrite(os.path.join(output_dir, f"{idx:05d}.jpg"), pose_img)
+    cv2.destroyAllWindows()
+
+    os.chdir(output_dir)
+    subprocess.call([
+        'ffmpeg', '-framerate', '30', '-i', '%05d.jpg', '-r', '10',
+        '-pix_fmt', 'yuv420p',
+        '-c:v', 'copy',
+        '-b:v', '3000k',
+        args.movement + '.mp4'
+    ])
+    # remove result images
+    for file_name in glob.glob("*.jpg"):
+        os.remove(file_name)

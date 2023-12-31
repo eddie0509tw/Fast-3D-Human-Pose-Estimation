@@ -1,0 +1,3 @@
+name: poseresnet
+num_layers: 101
+pretrained: 'weights/poseresnet_101_256/best.ckpt'
