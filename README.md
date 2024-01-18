@@ -21,6 +21,9 @@ Instuction: Todo
  
 Instuction: Todo
 
+### Weights
+You can download the best weight via the [link](https://drive.google.com/drive/folders/1wEZc3rrNR-Erb9fofr2fEvK0ba27t5y-?usp=sharing)
+
 ### Results 
 
 Best:
