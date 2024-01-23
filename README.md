@@ -13,16 +13,42 @@ This is a pytorch implementation of method based on [Lightweight Multi-View 3D P
 We pretrained our model using the [MPII](http://human-pose.mpi-inf.mpg.de/) Dataset which includes around 25K images containing over 40K people with annotated body joints. Then we do fine-tuning on the stereo data from [MADS](http://visal.cs.cityu.edu.hk/research/mads/#download) Dataset which consists of martial arts actions (Tai-chi and Karate), dancing actions (hip-hop and jazz), and sports actions (basketball, volleyball, football, rugby, tennis and badminton). Two martial art masters, two dancers and an athlete performed these
 actions while being recorded with either multiple cameras or a stereo depth camera.
 
+Please download the data and arange it into this pattern:
+```
+Your_WorkingSpace/
+├── ...
+├── ...
+├── data/
+    └── MADS_depth
+    └── MADS_multiview
+```
+And run the code to extract the training/validation data:
+```
+$ python extract_data.py
+```
+
 ### Train
 
 Instuction: Todo
 
-### Test
- 
-Instuction: Todo
+### Inference
+Run the following cmd after extracting data:
+```
+$ bash scripts/inference.sh
+``` 
 
 ### Weights
-You can download the best weight via the [link](https://drive.google.com/drive/folders/1wEZc3rrNR-Erb9fofr2fEvK0ba27t5y-?usp=sharing)
+You can download the best weight via the [link](https://drive.google.com/drive/folders/1wEZc3rrNR-Erb9fofr2fEvK0ba27t5y-?usp=sharing).
+
+You should maintain the weight under this structure to run the inference.
+```
+Your_WorkingSpace/
+├── ...
+├── ...
+├── weights/
+    └── mads_3d_256_101_best
+          └── best.pth
+```
 
 ### Results 
 
