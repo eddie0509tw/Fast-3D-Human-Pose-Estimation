@@ -11,7 +11,7 @@ DATASET:
   SCALE_FACTOR: 0.25
   OCCLUSION: CUTOUT
 MODEL:
-  NAME: mads_3d_256_101_combined_cutout_mask_training
+  NAME: mads_3d_256_101_best
   PRETRAINED: 'weights/mpii_256_101/latest.pth'
   IMAGE_SIZE:
   - 256

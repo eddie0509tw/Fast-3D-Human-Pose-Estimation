@@ -116,11 +116,17 @@ if __name__ == "__main__":
     parser.add_argument("--config_path", type=str,
                         default="configs/mads_3d.yaml",
                         help="Path to the config file")
+    parser.add_argument("--movement", type=str,
+                        default="HipHop",
+                        help="The movement video to inference")
+    parser.add_argument("--save_frames", type=int,
+                        default=None,
+                        help="Number of frames to generate gif")
     args = parser.parse_args()
 
     with open(args.config_path, 'r') as f:
         config = EasyDict(yaml.safe_load(f))
-    movement = "HipHop"
+    movement = args.movement
     MADS_loader = LoadMADSData("data/MADS_extract/valid",
                                config.MODEL.IMAGE_SIZE, movement)
 
@@ -128,7 +134,7 @@ if __name__ == "__main__":
 
     images = []
     error = (0, 0)
-    save_frames = 100 + 1
+    save_frames = args.save_frames
     for img_left, img_right, meta in tqdm.tqdm(MADS_loader,
                                                total=len(MADS_loader)):
         pose_img, err = method.estimate(img_left, img_right, meta)
@@ -136,7 +142,7 @@ if __name__ == "__main__":
 
         im = pil.fromarray(pose_img)
         images.append(im)
-        if images.__len__() > save_frames:
+        if save_frames is not None and images.__len__() > save_frames:
             break
 
     print("MPJPE2D: ", error[0] / MADS_loader.__len__())
