@@ -28,9 +28,14 @@ $ python extract_data.py
 ```
 
 ### Train
-
-Instuction: Todo
-
+Run the following cmd to train the CDRNET (Note: You need the backbone weight before training the CDRNET)
+```
+$ python train_cdr.py
+```
+Run the following cmd to train your cutomized resnet backbone
+```
+$ python train.py
+```
 ### Inference
 Run the following cmd after extracting data:
 ```
@@ -46,8 +51,10 @@ Your_WorkingSpace/
 ├── ...
 ├── ...
 ├── weights/
-    └── mads_3d_256_101_best
+    └── mads_3d_256_101
           └── best.pth
+    └── mpii_256_101
+        └── latest.pth
 ```
 
 ### Results 
