@@ -47,7 +47,7 @@ $ bash scripts/inference.sh
 ``` 
 
 ### Weights
-You can download the best weight via the [link](https://drive.google.com/drive/folders/1wEZc3rrNR-Erb9fofr2fEvK0ba27t5y-?usp=sharing).
+You can download the weights via the [link](https://drive.google.com/drive/folders/1wEZc3rrNR-Erb9fofr2fEvK0ba27t5y-?usp=sharing).
 
 You should maintain the weight under this structure to run the inference.
 ```
