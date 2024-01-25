@@ -28,7 +28,8 @@ $ python extract_data.py
 ```
 
 ### Train
-Run the following cmd to train the CDRNET (Note: You need the backbone weight(See the "Weigths" section below) before training the CDRNET)
+Run the following cmd to train the CDRNET 
+Note: You need the backbone weight(See the "Weigths" section below) before training the CDRNET
 ```
 $ python train_cdr.py
 ```
