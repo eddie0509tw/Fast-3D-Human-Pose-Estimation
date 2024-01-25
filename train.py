@@ -157,10 +157,10 @@ def run(config):
         # save latest model
         save_folder = os.path.join(model_path, "latest.pth")
         torch.save(model.state_dict(), save_folder)
-    plot_loss(train_losses, "./plot", "Training Loss")
-    plot_loss(val_losses, "./plot", "Validation Loss")
-    plot_loss(train_acc, "./plot", "Training Accuracy")
-    plot_loss(val_acc, "./plot", "Validation Accuracy")
+    # plot_loss(train_losses, "./plot", "Training Loss")
+    # plot_loss(val_losses, "./plot", "Validation Loss")
+    # plot_loss(train_acc, "./plot", "Training Accuracy")
+    # plot_loss(val_acc, "./plot", "Validation Accuracy")
     logger.info("Training is done!")
 
 
